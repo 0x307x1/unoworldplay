@@ -1,0 +1,1829 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>UNOPLAY - Play UNO Online with Friends</title>
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Google Fonts -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Montserrat:ital,wght@0,700;0,800;0,900;1,900&family=Poppins:wght@400;500;600;700;800&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <!-- Font Awesome Icons -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+
+    <!-- FX Kütüphaneleri: Three.js, GSAP, ScrollTrigger -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.5/gsap.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.5/ScrollTrigger.min.js"></script>
+
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    fontFamily: {
+                        sans: ['Inter', 'sans-serif'],
+                        heading: ['Montserrat', 'sans-serif'],
+                    },
+                    colors: {
+                        uno: {
+                            red: '#e52521',
+                            yellow: '#f59e0b',
+                            green: '#10b981',
+                            blue: '#0284c7',
+                            dark: '#080b10',
+                            tableFelt: '#164834',
+                            tableInner: '#0f3325',
+                            tableBorder: '#1c3d2f'
+                        }
+                    },
+                    keyframes: {
+                        float1: {
+                            '0%, 100%': { transform: 'translateY(0px) rotate(-8deg)' },
+                            '50%': { transform: 'translateY(-16px) rotate(-4deg)' }
+                        },
+                        float2: {
+                            '0%, 100%': { transform: 'translateY(0px) rotate(6deg) scale(1.05)' },
+                            '50%': { transform: 'translateY(-22px) rotate(8deg) scale(1.08)' }
+                        },
+                        float3: {
+                            '0%, 100%': { transform: 'translateY(0px) rotate(14deg)' },
+                            '50%': { transform: 'translateY(-14px) rotate(10deg)' }
+                        },
+                        float4: {
+                            '0%, 100%': { transform: 'translateY(0px) rotate(-14deg)' },
+                            '50%': { transform: 'translateY(-18px) rotate(-18deg)' }
+                        },
+                        cardFlip: {
+                            '0%': { transform: 'rotateY(0deg) scale(0.95)' },
+                            '50%': { transform: 'rotateY(180deg) scale(1.1)' },
+                            '100%': { transform: 'rotateY(360deg) scale(0.95)' }
+                        },
+                        cfSpin: {
+                            '0%': { transform: 'rotate(0deg)' },
+                            '100%': { transform: 'rotate(360deg)' }
+                        },
+                        pulseGlow: {
+                            '0%, 100%': { opacity: '0.4', transform: 'scale(0.98)' },
+                            '50%': { opacity: '0.8', transform: 'scale(1.02)' }
+                        }
+                    },
+                    animation: {
+                        'float-1': 'float1 5s ease-in-out infinite',
+                        'float-2': 'float2 6s ease-in-out infinite 0.4s',
+                        'float-3': 'float3 5.5s ease-in-out infinite 0.8s',
+                        'float-4': 'float4 6.5s ease-in-out infinite 1.2s',
+                        'card-flip': 'cardFlip 1.4s ease-in-out infinite',
+                        'cf-spin': 'cfSpin 0.9s linear infinite',
+                        'pulse-glow': 'pulseGlow 2.5s ease-in-out infinite'
+                    }
+                }
+            }
+        }
+    </script>
+
+    <style>
+        body {
+            background-color: #080b11;
+            color: #ffffff;
+            overflow-x: hidden;
+            font-family: 'Inter', sans-serif;
+            user-select: none;
+        }
+
+        /* WebGL Background Canvas */
+        #webgl-bg-canvas {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100vw;
+            height: 100vh;
+            pointer-events: none;
+            z-index: 1;
+            mix-blend-mode: screen;
+            opacity: 0.85;
+        }
+
+        /* Postprocessing: Film Grain Noise Overlay */
+        .film-grain-overlay {
+            position: fixed;
+            inset: 0;
+            pointer-events: none;
+            z-index: 90;
+            background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noiseFilter'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noiseFilter)' opacity='0.04'/%3E%3C/svg%3E");
+        }
+
+        /* Vignette FX */
+        .vignette-overlay {
+            position: fixed;
+            inset: 0;
+            pointer-events: none;
+            z-index: 89;
+            background: radial-gradient(circle at center, transparent 40%, rgba(0, 0, 0, 0.75) 100%);
+        }
+
+        /* Dynamic Magnetic Torch Spotlight */
+        #dynamicSpotlight {
+            position: fixed;
+            width: 700px;
+            height: 700px;
+            border-radius: 50%;
+            pointer-events: none;
+            z-index: 2;
+            transform: translate(-50%, -50%);
+            background: radial-gradient(circle, rgba(245, 158, 11, 0.12) 0%, rgba(229, 37, 33, 0.05) 35%, transparent 70%);
+            mix-blend-mode: screen;
+            transition: opacity 0.4s ease;
+        }
+
+        /* Trail & Cursor Effect */
+        #cursorDot {
+            position: fixed;
+            width: 8px;
+            height: 8px;
+            background: #f59e0b;
+            border-radius: 50%;
+            pointer-events: none;
+            z-index: 9999;
+            transform: translate(-50%, -50%);
+            box-shadow: 0 0 12px #f59e0b, 0 0 24px #e52521;
+        }
+
+        #cursorRing {
+            position: fixed;
+            width: 36px;
+            height: 36px;
+            border: 1.5px solid rgba(255, 255, 255, 0.5);
+            border-radius: 50%;
+            pointer-events: none;
+            z-index: 9998;
+            transform: translate(-50%, -50%);
+            transition: width 0.25s, height 0.25s, border-color 0.25s, background-color 0.25s;
+        }
+
+        /* Liquid Glass / Glassmorphism FX */
+        .liquid-glass {
+            background: rgba(14, 18, 26, 0.72) !important;
+            backdrop-filter: blur(20px) saturate(190%) !important;
+            -webkit-backdrop-filter: blur(20px) saturate(190%) !important;
+            border: 1px solid rgba(255, 255, 255, 0.12) !important;
+            box-shadow: 0 20px 50px rgba(0, 0, 0, 0.5), inset 0 1px 1px rgba(255, 255, 255, 0.15) !important;
+        }
+
+        .uno-aurora-bg {
+            position: absolute;
+            inset: 0;
+            overflow: hidden;
+            pointer-events: none;
+            z-index: 0;
+        }
+
+        .aurora-blob {
+            position: absolute;
+            border-radius: 9999px;
+            filter: blur(120px);
+            opacity: 0.35;
+            mix-blend-mode: screen;
+            animation: meshMorph 14s ease-in-out infinite alternate;
+        }
+
+        @keyframes meshMorph {
+            0% { transform: scale(1) translate(0px, 0px) rotate(0deg); }
+            50% { transform: scale(1.18) translate(30px, -20px) rotate(12deg); }
+            100% { transform: scale(0.92) translate(-25px, 25px) rotate(-10deg); }
+        }
+
+        .uno-card {
+            box-shadow: 0 24px 45px -10px rgba(0, 0, 0, 0.75), 0 0 25px rgba(255, 255, 255, 0.12) inset;
+            transition: transform 0.35s cubic-bezier(0.2, 0.8, 0.2, 1), box-shadow 0.35s ease;
+            cursor: pointer;
+            transform-style: preserve-3d;
+        }
+
+        .uno-card:hover {
+            box-shadow: 0 35px 65px -10px rgba(0, 0, 0, 0.9), 0 0 35px rgba(255, 255, 255, 0.4);
+            z-index: 50 !important;
+        }
+
+        .card-inner-oval {
+            position: absolute;
+            inset: 7px;
+            border-radius: 50% 50% 50% 50% / 60% 60% 40% 40%;
+            transform: rotate(-25deg);
+        }
+
+        .glass-panel {
+            background: rgba(14, 18, 26, 0.85);
+            backdrop-filter: blur(16px);
+            -webkit-backdrop-filter: blur(16px);
+            border: 1px solid rgba(255, 255, 255, 0.08);
+        }
+
+        .avatar-tile {
+            transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+            position: relative;
+        }
+        .avatar-tile:hover {
+            transform: translateY(-3px) scale(1.05);
+            border-color: rgba(255, 255, 255, 0.4);
+        }
+        .avatar-tile.active {
+            border-color: #f59e0b !important;
+            background: rgba(245, 158, 11, 0.22) !important;
+            box-shadow: 0 0 18px rgba(245, 158, 11, 0.6);
+            transform: scale(1.08);
+        }
+
+        .poker-table-outer {
+            background: radial-gradient(ellipse at center, #1b523e 0%, #103629 60%, #081a13 100%);
+            box-shadow: 0 0 0 10px #1a382b, 0 0 0 16px #0d1e16, 0 35px 80px rgba(0, 0, 0, 0.85), inset 0 0 70px rgba(0, 0, 0, 0.7);
+            border: 2px solid rgba(52, 211, 153, 0.25);
+        }
+
+        .table-rail {
+            box-shadow: inset 0 4px 10px rgba(255,255,255,0.08), inset 0 -6px 15px rgba(0,0,0,0.8);
+        }
+
+        .faq-item summary::-webkit-details-marker {
+            display: none;
+        }
+
+        ::-webkit-scrollbar {
+            width: 6px;
+        }
+        ::-webkit-scrollbar-track {
+            background: rgba(0, 0, 0, 0.2);
+        }
+        ::-webkit-scrollbar-thumb {
+            background: rgba(255, 255, 255, 0.2);
+            border-radius: 4px;
+        }
+        ::-webkit-scrollbar-thumb:hover {
+            background: #f59e0b;
+        }
+
+        /* 3D Tilt Card Glow Border */
+        .tilt-card {
+            transition: transform 0.15s ease-out, box-shadow 0.15s ease-out;
+            will-change: transform;
+        }
+
+        /* Reveal and Split Text Elements */
+        .fx-reveal-text {
+            display: inline-block;
+            will-change: transform, opacity;
+        }
+    </style>
+</head>
+<body class="min-h-screen flex flex-col justify-between selection:bg-yellow-400 selection:text-black">
+
+    <!-- FX CANVAS & POST-PROCESSING ELEMENTS -->
+    <canvas id="webgl-bg-canvas"></canvas>
+    <div id="dynamicSpotlight"></div>
+    <div class="film-grain-overlay"></div>
+    <div class="vignette-overlay"></div>
+    <div id="cursorDot"></div>
+    <div id="cursorRing"></div>
+
+    <!-- ================= CLOUDFLARE STYLE SECURITY VERIFICATION OVERLAY ================= -->
+    <div id="cfVerificationOverlay" class="fixed inset-0 z-[100] bg-[#0c0f17] flex flex-col justify-between p-6 sm:p-12 text-white font-sans transition-opacity duration-500 ease-out">
+        <div class="max-w-xl mx-auto w-full pt-10">
+            <div class="flex items-center gap-3 mb-8">
+                <div class="w-10 h-10 rounded-xl bg-red-600 flex items-center justify-center font-black italic tracking-tighter text-lg shadow-md border border-white/20">
+                    UNO
+                </div>
+                <div class="flex flex-col">
+                    <span class="font-heading font-black text-xl tracking-wider text-white">
+                        UNOPLAY<span class="text-yellow-400">Web</span>
+                    </span>
+                    <span class="text-[9px] uppercase tracking-widest text-white/40">DDoS Mitigation & Shield</span>
+                </div>
+            </div>
+
+            <div class="bg-[#121622] border border-white/10 rounded-3xl p-6 sm:p-8 shadow-2xl relative overflow-hidden liquid-glass">
+                <div class="flex items-start sm:items-center gap-4">
+                    <div id="cfSpinnerWrap" class="w-10 h-10 rounded-full border-3 border-amber-400/30 border-t-amber-400 animate-cf-spin flex-shrink-0 flex items-center justify-center"></div>
+                    <div id="cfSuccessWrap" class="w-10 h-10 rounded-full bg-emerald-500/20 border border-emerald-400 text-emerald-400 hidden flex-shrink-0 items-center justify-center text-lg">
+                        <i class="fa-solid fa-check"></i>
+                    </div>
+
+                    <div class="flex-1">
+                        <h2 id="cfStatusTitle" class="font-heading font-bold text-lg sm:text-xl text-white">
+                            Verifying your connection...
+                        </h2>
+                        <p id="cfStatusDesc" class="text-xs text-white/60 mt-1">
+                            Checking your browser before accessing the multiplayer arena. This takes just a moment.
+                        </p>
+                    </div>
+                </div>
+
+                <div class="mt-6 pt-5 border-t border-white/10 grid grid-cols-2 sm:grid-cols-3 gap-3 text-[11px] text-white/50">
+                    <div>
+                        <span class="block text-white/30 uppercase text-[9px] font-bold">Ray ID</span>
+                        <span class="font-mono text-white/80" id="cfRayId">8f92c10b47a9</span>
+                    </div>
+                    <div>
+                        <span class="block text-white/30 uppercase text-[9px] font-bold">Client Protocol</span>
+                        <span class="font-mono text-emerald-400 font-bold">TLS 1.3 / HTTP/3</span>
+                    </div>
+                    <div class="col-span-2 sm:col-span-1">
+                        <span class="block text-white/30 uppercase text-[9px] font-bold">Protection Level</span>
+                        <span class="font-mono text-yellow-400">High / Anti-Bot</span>
+                    </div>
+                </div>
+
+                <div class="w-full bg-white/5 h-1.5 rounded-full overflow-hidden mt-6">
+                    <div id="cfProgressBar" class="h-full bg-gradient-to-r from-amber-400 via-orange-500 to-red-500 w-0 transition-all duration-300"></div>
+                </div>
+            </div>
+
+            <p class="text-[11px] text-white/40 mt-6 leading-relaxed">
+                Cloudflare-powered edge security. Please ensure JavaScript and WebSockets are enabled in your browser to maintain real-time low-latency card sync.
+            </p>
+        </div>
+
+        <div class="max-w-xl mx-auto w-full flex items-center justify-between text-[11px] text-white/30 border-t border-white/5 pt-4">
+            <span class="flex items-center gap-1.5">
+                <i class="fa-solid fa-shield-halved text-amber-400 text-xs"></i> Protected by UNOPLAY Edge Defense
+            </span>
+            <span class="font-mono">Performance &amp; Security</span>
+        </div>
+    </div>
+
+    <!-- ================= 2ND YEAR ANNIVERSARY CELEBRATION MODAL ================= -->
+    <div id="anniversaryModal" class="fixed inset-0 z-[105] bg-black/85 backdrop-blur-md flex items-center justify-center p-4 hidden opacity-0 transition-all duration-500">
+        <div id="anniversaryBox" class="bg-gradient-to-b from-[#161a29] to-[#0c0f18] border-2 border-yellow-400/50 rounded-3xl w-full max-w-lg p-7 sm:p-9 shadow-[0_20px_80px_rgba(245,158,11,0.35)] relative transform scale-90 transition-all duration-500 text-center overflow-hidden liquid-glass">
+            <div class="absolute -top-24 -left-24 w-48 h-48 bg-yellow-400/20 rounded-full blur-3xl pointer-events-none"></div>
+            <div class="absolute -bottom-24 -right-24 w-48 h-48 bg-red-600/20 rounded-full blur-3xl pointer-events-none"></div>
+
+            <button onclick="closeAnniversaryModal()" class="absolute top-4 right-4 w-8 h-8 rounded-full bg-white/5 hover:bg-white/10 text-white/50 hover:text-white flex items-center justify-center transition">
+                <i class="fa-solid fa-xmark text-sm"></i>
+            </button>
+
+            <!-- 2nd Year Icon -->
+            <div class="relative w-20 h-20 mx-auto mb-5 flex items-center justify-center">
+                <div class="absolute inset-0 rounded-2xl bg-gradient-to-tr from-yellow-400 to-amber-500 opacity-30 blur-lg animate-pulse"></div>
+                <div class="w-18 h-18 rounded-2xl bg-[#1b2133] border-2 border-yellow-400 flex items-center justify-center text-4xl shadow-xl">
+                    🎉
+                </div>
+                <span class="absolute -bottom-2 -right-2 px-2.5 py-0.5 rounded-full bg-gradient-to-r from-red-600 to-rose-600 text-white font-heading font-black text-[11px] shadow border border-white/20">
+                    2 YEARS
+                </span>
+            </div>
+
+            <div class="inline-flex items-center gap-2 px-3.5 py-1 rounded-full bg-yellow-400/10 border border-yellow-400/30 text-yellow-300 text-xs font-bold uppercase tracking-wider mb-3">
+                <i class="fa-solid fa-cake-candles"></i> Official UNOPLAY Anniversary
+            </div>
+
+            <h2 class="font-heading font-black text-2xl sm:text-3xl text-white tracking-tight">
+                Celebrating 2 Years of <span class="text-transparent bg-clip-text bg-gradient-to-r from-yellow-300 via-amber-400 to-red-500">UNO!</span>
+            </h2>
+
+            <p class="text-xs sm:text-sm text-white/75 mt-3 leading-relaxed">
+                Thank you for being part of our incredible community! Over the past two years, millions of cards have been played, friendships tested, and championships won. To celebrate, our newly optimized Windows desktop client is now live!
+            </p>
+
+            <div class="mt-6 grid grid-cols-3 gap-3 text-left">
+                <div class="p-2.5 rounded-xl bg-white/5 border border-white/5 flex flex-col items-center text-center">
+                    <span class="text-yellow-400 font-black text-base font-heading">1.2M+</span>
+                    <span class="text-[10px] text-white/50">Matches Played</span>
+                </div>
+                <div class="p-2.5 rounded-xl bg-white/5 border border-white/5 flex flex-col items-center text-center">
+                    <span class="text-emerald-400 font-black text-base font-heading">100%</span>
+                    <span class="text-[10px] text-white/50">Free & Ad-Free</span>
+                </div>
+                <div class="p-2.5 rounded-xl bg-white/5 border border-white/5 flex flex-col items-center text-center">
+                    <span class="text-sky-400 font-black text-base font-heading">v2.4.1</span>
+                    <span class="text-[10px] text-white/50">Live Release</span>
+                </div>
+            </div>
+
+            <div class="mt-7 flex flex-col sm:flex-row items-center gap-3">
+                <button onclick="closeAnniversaryModal()" class="w-full sm:flex-1 py-3 bg-gradient-to-r from-yellow-400 via-amber-400 to-yellow-500 hover:from-yellow-300 hover:to-amber-400 text-gray-950 font-black text-sm rounded-xl shadow-lg shadow-yellow-400/25 transition transform hover:scale-[1.02] active:scale-98 flex items-center justify-center gap-2">
+                    <i class="fa-solid fa-gamepad"></i>
+                    <span>Join the Party & Play</span>
+                </button>
+                <button onclick="closeAnniversaryModal(); startDownloadFlow();" class="w-full sm:w-auto px-5 py-3 rounded-xl bg-white/10 hover:bg-white/15 text-white font-bold text-xs border border-white/15 transition flex items-center justify-center gap-1.5">
+                    <i class="fa-solid fa-download text-yellow-400"></i>
+                    <span>Get Desktop Client</span>
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- UNO Aurora Mesh Gradient Ambient Lights -->
+    <div class="uno-aurora-bg">
+        <div class="aurora-blob bg-amber-500 w-[580px] h-[520px] -top-24 -left-20"></div>
+        <div class="aurora-blob bg-red-600 w-[640px] h-[640px] top-6 left-1/4" style="animation-delay: -2s;"></div>
+        <div class="aurora-blob bg-sky-600 w-[520px] h-[540px] top-4 right-0" style="animation-delay: -4s;"></div>
+        <div class="aurora-blob bg-emerald-600 w-[880px] h-[700px] top-[32%] right-[-10%] opacity-40"></div>
+        <div class="absolute inset-0 bg-gradient-to-b from-transparent via-transparent to-[#080b11]"></div>
+    </div>
+
+    <!-- ================= NAVBAR ================= -->
+    <header class="sticky top-0 z-40 w-full bg-[#991b1b]/95 backdrop-blur-md border-b border-red-500/25 shadow-xl px-4 lg:px-12 py-3.5">
+        <div class="max-w-7xl mx-auto flex items-center justify-between">
+            <a href="/" onclick="navigateTo('/'); return false;" class="flex items-center gap-3 group">
+                <div class="relative bg-black/50 p-2 rounded-2xl border border-white/20 group-hover:scale-105 transition-transform flex items-center justify-center shadow-lg">
+                    <span class="inline-block bg-gradient-to-br from-yellow-300 via-orange-400 to-red-500 text-transparent bg-clip-text font-black text-2xl tracking-tighter font-heading italic">
+                        UNO
+                    </span>
+                </div>
+                <div class="flex flex-col">
+                    <span class="font-heading font-black text-2xl tracking-wider text-white flex items-center drop-shadow-md">
+                        UNOPLAY<span class="text-yellow-300 font-extrabold ml-0.5">Web</span>
+                    </span>
+                    <span class="text-[9px] uppercase font-bold tracking-[0.3em] text-red-200 -mt-1">MULTIPLAYER ARENA</span>
+                </div>
+            </a>
+
+            <!-- Navigation Links -->
+            <nav class="hidden md:flex items-center space-x-6 text-sm font-semibold text-white/80">
+                <a href="/dashboard" onclick="navigateTo('/'); return false;" class="text-yellow-300 hover:text-yellow-400 font-bold flex items-center gap-1.5 transition">
+                    <i class="fa-solid fa-house text-xs"></i>
+                    <span>Dashboard</span>
+                </a>
+                <a href="/features" onclick="navigateToSection('features', '/features'); return false;" class="hover:text-yellow-300 transition">Features</a>
+                <a href="/how-to-play" onclick="navigateToSection('how-to-play', '/how-to-play'); return false;" class="hover:text-yellow-300 transition">How to Play</a>
+                <a href="/rules" onclick="navigateToSection('rules', '/rules'); return false;" class="hover:text-yellow-300 transition">Rules</a>
+                <a href="/requirements" onclick="navigateToSection('requirements', '/requirements'); return false;" class="hover:text-yellow-300 transition">Specs</a>
+                <a href="/reviews" onclick="navigateToSection('reviews', '/reviews'); return false;" class="hover:text-yellow-300 transition">Reviews</a>
+                <a href="/faq" onclick="navigateToSection('faq', '/faq'); return false;" class="hover:text-yellow-300 transition">FAQ</a>
+                <a href="https://gofile.io/d/y6H61UQ2" target="_blank" class="text-amber-300 hover:text-yellow-200 font-bold flex items-center gap-1 transition">
+                    <i class="fa-solid fa-download text-xs"></i>
+                    <span>Download</span>
+                </a>
+            </nav>
+
+            <div class="flex items-center space-x-3 sm:space-x-4">
+                <div id="navRoomBadge" class="hidden items-center gap-2 px-3 py-1.5 bg-yellow-400/20 border border-yellow-400/40 rounded-full text-xs font-bold text-yellow-300 cursor-pointer hover:bg-yellow-400/30 transition" onclick="openLobbyFromBadge()">
+                    <i class="fa-solid fa-gamepad animate-pulse"></i>
+                    <span id="navRoomCode">UNO-4863</span>
+                </div>
+
+                <button onclick="openModal('join')" class="flex items-center gap-2 px-4 py-2 text-xs sm:text-sm font-bold text-white bg-white/10 hover:bg-white/20 border border-white/25 rounded-full shadow-md transition transform hover:scale-105 active:scale-95">
+                    <i class="fa-solid fa-door-open text-yellow-300"></i>
+                    <span>Join Room</span>
+                </button>
+
+                <button onclick="openModal('create')" class="flex items-center gap-2 px-4 sm:px-5 py-2 text-xs sm:text-sm font-bold text-white bg-gradient-to-r from-red-600 to-rose-700 hover:from-red-500 hover:to-rose-600 rounded-full shadow-[0_0_20px_rgba(229,37,33,0.5)] border border-white/30 transition transform hover:scale-105 active:scale-95">
+                    <i class="fa-solid fa-plus text-xs"></i>
+                    <span>Create Room</span>
+                </button>
+            </div>
+        </div>
+    </header>
+
+    <!-- ================= MAIN VIEW CONTAINER ================= -->
+    <div id="viewContainer" class="relative z-10">
+
+        <!-- 1. LANDING HERO & SCROLLABLE SECTIONS VIEW -->
+        <div id="heroView">
+            
+            <!-- HERO SECTION -->
+            <main class="relative z-10 flex flex-col justify-center px-6 lg:px-16 pt-12 pb-20">
+                <div class="max-w-7xl mx-auto w-full grid grid-cols-1 lg:grid-cols-12 gap-8 lg:gap-12 items-center">
+                    
+                    <div class="lg:col-span-7 flex flex-col items-start z-20">
+                        <div class="inline-flex items-center gap-2 px-4 py-1.5 rounded-full bg-white/10 backdrop-blur-md border border-white/20 shadow-md mb-6">
+                            <span class="w-2.5 h-2.5 rounded-full bg-red-500 animate-pulse"></span>
+                            <span class="text-xs uppercase font-extrabold tracking-widest text-white/95">THE WILDEST UNO EXPERIENCE</span>
+                        </div>
+
+                        <h1 class="font-heading font-black text-5xl sm:text-6xl md:text-7xl xl:text-8xl tracking-tight leading-[0.98] uppercase">
+                            <span class="block text-white drop-shadow-[0_8px_20px_rgba(0,0,0,0.6)] fx-reveal-text">TAKE THE</span>
+                            <span class="block text-white drop-shadow-[0_8px_20px_rgba(0,0,0,0.6)] fx-reveal-text">COMPETITION</span>
+                            <span class="block text-transparent bg-clip-text bg-gradient-to-r from-yellow-300 via-amber-400 to-orange-500 drop-shadow-[0_6px_25px_rgba(245,158,11,0.5)] fx-reveal-text">
+                                TO THE TOP!
+                            </span>
+                        </h1>
+
+                        <p class="mt-6 text-base sm:text-lg text-white/80 max-w-xl font-normal leading-relaxed">
+                            Create private tables with friends, share direct room codes, jump on low-latency voice chat, and dominate with classic & custom card rules.
+                        </p>
+
+                        <div class="mt-8 flex flex-wrap items-center gap-3.5 sm:gap-4 w-full">
+                            <button onclick="openModal('create')" class="flex items-center justify-center gap-2 px-7 py-3.5 text-sm sm:base font-bold text-white bg-gradient-to-r from-[#e52521] to-[#b91c1c] hover:from-red-500 hover:to-red-700 rounded-full shadow-[0_10px_25px_rgba(229,37,33,0.5)] border border-red-400/40 transform hover:-translate-y-0.5 active:translate-y-0 transition">
+                                <i class="fa-solid fa-circle-plus"></i>
+                                <span>Create Room</span>
+                            </button>
+
+                            <button onclick="openModal('join')" class="flex items-center justify-center gap-2 px-6 py-3.5 text-sm sm:text-base font-bold text-white bg-white/10 hover:bg-white/20 backdrop-blur-md rounded-full border border-white/25 shadow-md transform hover:-translate-y-0.5 transition">
+                                <i class="fa-solid fa-door-open text-yellow-300"></i>
+                                <span>Join Room</span>
+                            </button>
+
+                            <button onclick="startDownloadFlow()" class="flex items-center justify-center gap-2 px-6 py-3.5 text-sm sm:text-base font-bold text-gray-950 bg-gradient-to-r from-amber-400 to-yellow-400 hover:from-yellow-300 hover:to-amber-300 rounded-full shadow-[0_10px_25px_rgba(251,191,36,0.3)] transform hover:-translate-y-0.5 transition">
+                                <i class="fa-solid fa-download"></i>
+                                <span>Download For Computer</span>
+                            </button>
+                        </div>
+
+                        <!-- Metrics -->
+                        <div class="mt-12 flex flex-wrap items-center gap-8 sm:gap-12 pt-6 border-t border-white/10 w-full">
+                            <div class="flex flex-col">
+                                <div class="flex items-baseline gap-1">
+                                    <span class="font-heading font-black text-3xl sm:text-4xl text-yellow-300">1,500</span>
+                                    <span class="text-yellow-400 font-extrabold text-2xl">+</span>
+                                </div>
+                                <span class="text-xs uppercase font-semibold text-white/60 tracking-wider">Active Players</span>
+                            </div>
+
+                            <div class="h-8 w-px bg-white/15"></div>
+
+                            <div class="flex flex-col">
+                                <div class="flex items-baseline gap-1">
+                                    <span class="font-heading font-black text-3xl sm:text-4xl text-yellow-300">380</span>
+                                </div>
+                                <span class="text-xs uppercase font-semibold text-white/60 tracking-wider">Open Rooms</span>
+                            </div>
+
+                            <div class="h-8 w-px bg-white/15"></div>
+
+                            <div class="flex flex-col">
+                                <div class="flex items-center gap-2">
+                                    <span class="font-heading font-black text-3xl sm:text-4xl text-emerald-400">&lt;6ms</span>
+                                    <span class="inline-block w-2.5 h-2.5 rounded-full bg-emerald-400 animate-pulse"></span>
+                                </div>
+                                <span class="text-xs uppercase font-semibold text-white/60 tracking-wider">Ultra-Low Latency</span>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="lg:col-span-5 relative w-full h-[380px] sm:h-[460px] lg:h-[520px] flex items-center justify-center">
+                        <div class="uno-card absolute w-36 h-56 sm:w-44 sm:h-64 rounded-2xl bg-gradient-to-br from-red-500 to-red-700 p-2.5 animate-float-1 z-20 -top-2 left-4 sm:left-10 border-2 border-white/60" onclick="tiltCard(this)">
+                            <div class="w-full h-full rounded-xl bg-red-600 relative overflow-hidden flex items-center justify-center border border-red-400/50">
+                                <span class="absolute top-1.5 left-2 font-heading font-black text-xl text-white">9</span>
+                                <span class="absolute bottom-1.5 right-2 font-heading font-black text-xl text-white rotate-180">9</span>
+                                <div class="card-inner-oval bg-white w-24 h-40 flex items-center justify-center shadow-inner">
+                                    <span class="font-heading font-black text-6xl text-red-600 italic tracking-tighter">9</span>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="uno-card absolute w-40 h-60 sm:w-48 sm:h-72 rounded-2xl bg-[#121216] p-2.5 animate-float-2 z-30 top-12 left-24 sm:left-32 border-2 border-white/70" onclick="tiltCard(this)">
+                            <div class="w-full h-full rounded-xl bg-[#1c1c24] relative overflow-hidden flex items-center justify-center border border-gray-600/50">
+                                <span class="absolute top-2 left-2.5 font-heading font-black text-sm text-white">+4</span>
+                                <span class="absolute bottom-2 right-2.5 font-heading font-black text-sm text-white rotate-180">+4</span>
+                                <div class="card-inner-oval w-28 h-44 overflow-hidden relative shadow-2xl border-2 border-white/30 flex items-center justify-center">
+                                    <div class="absolute inset-0 grid grid-cols-2 grid-rows-2">
+                                        <div class="bg-red-600"></div>
+                                        <div class="bg-blue-600"></div>
+                                        <div class="bg-yellow-400"></div>
+                                        <div class="bg-emerald-600"></div>
+                                    </div>
+                                    <div class="relative z-10 flex flex-col items-center">
+                                        <span class="font-heading font-black text-5xl text-white italic drop-shadow-md">+4</span>
+                                        <span class="font-heading font-black text-[10px] tracking-widest text-white uppercase px-2 py-0.5 bg-black/60 rounded-full mt-1">WILD</span>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="uno-card absolute w-36 h-56 sm:w-44 sm:h-64 rounded-2xl bg-gradient-to-br from-amber-400 to-yellow-500 p-2.5 animate-float-3 z-10 top-2 right-2 sm:right-6 border-2 border-white/60" onclick="tiltCard(this)">
+                            <div class="w-full h-full rounded-xl bg-yellow-400 relative overflow-hidden flex items-center justify-center border border-yellow-300">
+                                <span class="absolute top-1.5 left-2 font-heading font-black text-xl text-white">5</span>
+                                <span class="absolute bottom-1.5 right-2 font-heading font-black text-xl text-white rotate-180">5</span>
+                                <div class="card-inner-oval bg-white w-24 h-40 flex items-center justify-center shadow-inner">
+                                    <span class="font-heading font-black text-6xl text-yellow-500 italic tracking-tighter">5</span>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="uno-card absolute w-36 h-56 sm:w-44 sm:h-64 rounded-2xl bg-gradient-to-br from-emerald-500 to-green-700 p-2.5 animate-float-4 z-20 bottom-0 left-14 sm:left-24 border-2 border-white/60" onclick="tiltCard(this)">
+                            <div class="w-full h-full rounded-xl bg-emerald-600 relative overflow-hidden flex items-center justify-center border border-emerald-400/50">
+                                <span class="absolute top-2 left-2 text-white font-black text-base"><i class="fa-solid fa-ban"></i></span>
+                                <span class="absolute bottom-2 right-2 text-white font-black text-base rotate-180"><i class="fa-solid fa-ban"></i></span>
+                                <div class="card-inner-oval bg-white w-24 h-40 flex items-center justify-center shadow-inner">
+                                    <i class="fa-solid fa-ban text-5xl text-emerald-600 drop-shadow-md"></i>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </main>
+
+            <!-- FEATURES SECTION -->
+            <section id="features" class="relative z-10 py-16 px-6 lg:px-16 border-t border-white/5 bg-[#0b0e17]/80">
+                <div class="max-w-7xl mx-auto">
+                    <div class="text-center max-w-2xl mx-auto mb-14">
+                        <span class="text-xs uppercase font-extrabold tracking-widest text-yellow-400">UNMATCHED CARD ARENA</span>
+                        <h2 class="font-heading font-black text-3xl sm:text-4xl text-white mt-2">Engineered For Pure Competition</h2>
+                        <p class="text-sm text-white/60 mt-3">From casual party tables to competitive tournament lobbies, explore custom mechanics designed for serious card game enthusiasts.</p>
+                    </div>
+
+                    <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
+                        <div class="glass-panel tilt-card p-7 rounded-3xl hover:border-yellow-400/40 transition duration-300">
+                            <div class="w-12 h-12 rounded-2xl bg-red-600/20 text-red-400 flex items-center justify-center text-xl mb-5 border border-red-500/30">
+                                <i class="fa-solid fa-bolt"></i>
+                            </div>
+                            <h3 class="font-heading font-bold text-lg text-white mb-2">Real-Time Sync Engine</h3>
+                            <p class="text-xs text-white/70 leading-relaxed">Built with persistent low-latency WebSockets. Every card play, draw, swap, and bluff syncs instantaneously across all seats.</p>
+                        </div>
+
+                        <div class="glass-panel tilt-card p-7 rounded-3xl hover:border-yellow-400/40 transition duration-300">
+                            <div class="w-12 h-12 rounded-2xl bg-blue-600/20 text-blue-400 flex items-center justify-center text-xl mb-5 border border-blue-500/30">
+                                <i class="fa-solid fa-microphone-lines"></i>
+                            </div>
+                            <h3 class="font-heading font-bold text-lg text-white mb-2">Crystal Voice Chat</h3>
+                            <p class="text-xs text-white/70 leading-relaxed">Pair your deck plays with live audio. Voice chatter, ambient background noise suppression, and push-to-talk are unlocked via our desktop app.</p>
+                        </div>
+
+                        <div class="glass-panel tilt-card p-7 rounded-3xl hover:border-yellow-400/40 transition duration-300">
+                            <div class="w-12 h-12 rounded-2xl bg-emerald-600/20 text-emerald-400 flex items-center justify-center text-xl mb-5 border border-emerald-500/30">
+                                <i class="fa-solid fa-shield-halved"></i>
+                            </div>
+                            <h3 class="font-heading font-bold text-lg text-white mb-2">Anti-Cheat & Fairness</h3>
+                            <p class="text-xs text-white/70 leading-relaxed">Server-authoritative random shuffling guarantees fair draws. Hidden cards are never leaked over client payload states.</p>
+                        </div>
+                    </div>
+                </div>
+            </section>
+
+            <!-- HOW TO PLAY SECTION -->
+            <section id="how-to-play" class="relative z-10 py-16 px-6 lg:px-16 border-t border-white/5">
+                <div class="max-w-7xl mx-auto">
+                    <div class="text-center max-w-2xl mx-auto mb-14">
+                        <span class="text-xs uppercase font-extrabold tracking-widest text-emerald-400">QUICK SETUP</span>
+                        <h2 class="font-heading font-black text-3xl sm:text-4xl text-white mt-2">How To Jump In The Action</h2>
+                        <p class="text-sm text-white/60 mt-3">Three simple steps to assemble your table and start dealing cards.</p>
+                    </div>
+
+                    <div class="grid grid-cols-1 md:grid-cols-3 gap-8">
+                        <div class="relative bg-white/5 border border-white/10 rounded-3xl p-6 flex flex-col items-start tilt-card">
+                            <span class="font-heading font-black text-4xl text-yellow-400/30 mb-3">01</span>
+                            <h3 class="font-heading font-bold text-base text-white mb-2">Create or Enter Code</h3>
+                            <p class="text-xs text-white/70 leading-relaxed">Click <strong>Create Room</strong> to set capacity and rules, or enter an active <strong>UNO-XXXX</strong> code to connect directly.</p>
+                        </div>
+
+                        <div class="relative bg-white/5 border border-white/10 rounded-3xl p-6 flex flex-col items-start tilt-card">
+                            <span class="font-heading font-black text-4xl text-yellow-400/30 mb-3">02</span>
+                            <h3 class="font-heading font-bold text-base text-white mb-2">Invite Your Friends</h3>
+                            <p class="text-xs text-white/70 leading-relaxed">Share the one-click invite URL. Your friends can join seamlessly from web browser or launch the desktop launcher.</p>
+                        </div>
+
+                        <div class="relative bg-white/5 border border-white/10 rounded-3xl p-6 flex flex-col items-start tilt-card">
+                            <span class="font-heading font-black text-4xl text-yellow-400/30 mb-3">03</span>
+                            <h3 class="font-heading font-bold text-base text-white mb-2">Deal & Call UNO!</h3>
+                            <p class="text-xs text-white/70 leading-relaxed">Match colors, slap Draw Fours, reverse the turn order, and don't forget to yell UNO before laying your final card down.</p>
+                        </div>
+                    </div>
+                </div>
+            </section>
+
+            <!-- RULES SECTION -->
+            <section id="rules" class="relative z-10 py-20 px-6 lg:px-16 border-t border-white/5 bg-[#090d14]/90">
+                <div class="max-w-7xl mx-auto">
+                    <div class="text-center max-w-2xl mx-auto mb-14">
+                        <span class="text-xs uppercase font-extrabold tracking-widest text-red-400">TABLE GUIDE &amp; ARSENAL</span>
+                        <h2 class="font-heading font-black text-3xl sm:text-4xl text-white mt-2">Official Match Rules &amp; Special Cards</h2>
+                        <p class="text-xs sm:text-sm text-white/60 mt-2">Master all 8 special action cards and competitive house mechanics to dominate table rotation.</p>
+                    </div>
+
+                    <!-- 8 Card Tiles Grid -->
+                    <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
+                        <div class="glass-panel tilt-card p-6 rounded-3xl border border-red-500/20 hover:border-red-500/60 transition-all duration-300 flex flex-col items-center text-center group hover:-translate-y-1 shadow-lg shadow-red-950/20">
+                            <div class="w-16 h-24 rounded-xl bg-gradient-to-br from-red-500 to-red-700 p-1 shadow-lg shadow-red-600/30 border border-white/40 mb-4 group-hover:scale-105 transition-transform flex items-center justify-center relative">
+                                <span class="absolute top-1 left-1.5 text-[9px] font-black text-white">+2</span>
+                                <div class="w-11 h-16 bg-white rounded-full flex items-center justify-center -rotate-12 shadow-inner">
+                                    <span class="font-heading font-black text-xl text-red-600 italic">+2</span>
+                                </div>
+                                <span class="absolute bottom-1 right-1.5 text-[9px] font-black text-white rotate-180">+2</span>
+                            </div>
+                            <h3 class="font-heading font-black text-lg text-white mb-1.5 flex items-center gap-1.5">
+                                <span class="text-red-500">Draw 2</span> (+2)
+                            </h3>
+                            <p class="text-xs text-white/70 leading-relaxed">
+                                Forces the subsequent player to pick 2 penalty cards from the deck and skip their turn.
+                            </p>
+                        </div>
+
+                        <div class="glass-panel tilt-card p-6 rounded-3xl border border-blue-500/20 hover:border-blue-500/60 transition-all duration-300 flex flex-col items-center text-center group hover:-translate-y-1 shadow-lg shadow-blue-950/20">
+                            <div class="w-16 h-24 rounded-xl bg-gradient-to-br from-blue-500 to-blue-700 p-1 shadow-lg shadow-blue-600/30 border border-white/40 mb-4 group-hover:scale-105 transition-transform flex items-center justify-center relative">
+                                <span class="absolute top-1 left-1.5 text-[9px] font-black text-white"><i class="fa-solid fa-arrows-rotate"></i></span>
+                                <div class="w-11 h-16 bg-white rounded-full flex items-center justify-center -rotate-12 shadow-inner text-blue-600">
+                                    <i class="fa-solid fa-arrows-rotate text-xl"></i>
+                                </div>
+                                <span class="absolute bottom-1 right-1.5 text-[9px] font-black text-white rotate-180"><i class="fa-solid fa-arrows-rotate"></i></span>
+                            </div>
+                            <h3 class="font-heading font-black text-lg text-white mb-1.5 flex items-center gap-1.5">
+                                <span class="text-blue-400">Reverse</span> (<i class="fa-solid fa-arrows-rotate text-xs"></i>)
+                            </h3>
+                            <p class="text-xs text-white/70 leading-relaxed">
+                                Instantly flips the play direction from clockwise to counter-clockwise.
+                            </p>
+                        </div>
+
+                        <div class="glass-panel tilt-card p-6 rounded-3xl border border-emerald-500/20 hover:border-emerald-500/60 transition-all duration-300 flex flex-col items-center text-center group hover:-translate-y-1 shadow-lg shadow-emerald-950/20">
+                            <div class="w-16 h-24 rounded-xl bg-gradient-to-br from-emerald-500 to-green-700 p-1 shadow-lg shadow-emerald-600/30 border border-white/40 mb-4 group-hover:scale-105 transition-transform flex items-center justify-center relative">
+                                <span class="absolute top-1 left-1.5 text-[9px] font-black text-white"><i class="fa-solid fa-ban"></i></span>
+                                <div class="w-11 h-16 bg-white rounded-full flex items-center justify-center -rotate-12 shadow-inner text-emerald-600">
+                                    <i class="fa-solid fa-ban text-xl"></i>
+                                </div>
+                                <span class="absolute bottom-1 right-1.5 text-[9px] font-black text-white rotate-180"><i class="fa-solid fa-ban"></i></span>
+                            </div>
+                            <h3 class="font-heading font-black text-lg text-white mb-1.5 flex items-center gap-1.5">
+                                <span class="text-emerald-400">Skip</span> (<i class="fa-solid fa-ban text-xs"></i>)
+                            </h3>
+                            <p class="text-xs text-white/70 leading-relaxed">
+                                Denies the next player in order their entire turn.
+                            </p>
+                        </div>
+
+                        <div class="glass-panel tilt-card p-6 rounded-3xl border border-amber-500/20 hover:border-amber-500/60 transition-all duration-300 flex flex-col items-center text-center group hover:-translate-y-1 shadow-lg shadow-amber-950/20">
+                            <div class="w-16 h-24 rounded-xl bg-[#121216] p-1 shadow-lg shadow-amber-500/20 border border-white/50 mb-4 group-hover:scale-105 transition-transform flex items-center justify-center relative overflow-hidden">
+                                <span class="absolute top-1 left-1 text-[8px] font-black text-white z-10">+4</span>
+                                <div class="w-11 h-16 rounded-full overflow-hidden relative shadow-inner border border-white/30 flex items-center justify-center -rotate-12">
+                                    <div class="absolute inset-0 grid grid-cols-2 grid-rows-2">
+                                        <div class="bg-red-600"></div>
+                                        <div class="bg-blue-600"></div>
+                                        <div class="bg-yellow-400"></div>
+                                        <div class="bg-emerald-600"></div>
+                                    </div>
+                                    <span class="relative z-10 font-heading font-black text-base text-white drop-shadow">+4</span>
+                                </div>
+                                <span class="absolute bottom-1 right-1 text-[8px] font-black text-white rotate-180 z-10">+4</span>
+                            </div>
+                            <h3 class="font-heading font-black text-lg text-white mb-1.5 flex items-center gap-1.5">
+                                <span class="text-amber-400">Wild Draw 4</span> (+4)
+                            </h3>
+                            <p class="text-xs text-white/70 leading-relaxed">
+                                Declares the next active color and inflicts a 4-card penalty and skipped turn upon target player.
+                            </p>
+                        </div>
+
+                        <div class="glass-panel tilt-card p-6 rounded-3xl border border-purple-500/20 hover:border-purple-500/60 transition-all duration-300 flex flex-col items-center text-center group hover:-translate-y-1 shadow-lg shadow-purple-950/20">
+                            <div class="w-16 h-24 rounded-xl bg-[#151622] p-1 shadow-lg shadow-purple-500/30 border border-white/50 mb-4 group-hover:scale-105 transition-transform flex items-center justify-center relative overflow-hidden">
+                                <span class="absolute top-1 left-1.5 text-[8px] font-black text-white z-10"><i class="fa-solid fa-palette"></i></span>
+                                <div class="w-11 h-16 rounded-full overflow-hidden relative shadow-inner border border-white/30 flex items-center justify-center -rotate-12">
+                                    <div class="absolute inset-0 grid grid-cols-2 grid-rows-2">
+                                        <div class="bg-rose-500"></div>
+                                        <div class="bg-sky-500"></div>
+                                        <div class="bg-amber-400"></div>
+                                        <div class="bg-emerald-500"></div>
+                                    </div>
+                                    <i class="fa-solid fa-palette text-white text-base relative z-10 drop-shadow"></i>
+                                </div>
+                                <span class="absolute bottom-1 right-1.5 text-[8px] font-black text-white rotate-180 z-10"><i class="fa-solid fa-palette"></i></span>
+                            </div>
+                            <h3 class="font-heading font-black text-lg text-white mb-1.5 flex items-center gap-1.5">
+                                <span class="text-purple-400">Wild Color</span> (<i class="fa-solid fa-palette text-xs"></i>)
+                            </h3>
+                            <p class="text-xs text-white/70 leading-relaxed">
+                                Playable on any turn to switch the match color.
+                            </p>
+                        </div>
+
+                        <div class="glass-panel tilt-card p-6 rounded-3xl border border-yellow-500/20 hover:border-yellow-500/60 transition-all duration-300 flex flex-col items-center text-center group hover:-translate-y-1 shadow-lg shadow-yellow-950/20">
+                            <div class="w-16 h-24 rounded-xl bg-gradient-to-br from-yellow-500 to-amber-600 p-1 shadow-lg shadow-yellow-600/30 border border-white/40 mb-4 group-hover:scale-105 transition-transform flex items-center justify-center relative">
+                                <span class="absolute top-1 left-1.5 text-[9px] font-black text-gray-950">7•0</span>
+                                <div class="w-11 h-16 bg-gray-950 rounded-full flex flex-col items-center justify-center -rotate-12 shadow-inner border border-yellow-400/40">
+                                    <i class="fa-solid fa-right-left text-yellow-400 text-sm"></i>
+                                </div>
+                                <span class="absolute bottom-1 right-1.5 text-[9px] font-black text-gray-950 rotate-180">7•0</span>
+                            </div>
+                            <h3 class="font-heading font-black text-lg text-white mb-1.5 flex items-center gap-1.5">
+                                <span class="text-yellow-400">7-0 Swap</span> (<i class="fa-solid fa-right-left text-xs"></i>)
+                            </h3>
+                            <p class="text-xs text-white/70 leading-relaxed">
+                                7 swaps hand with any player; 0 forces all hands to rotate!
+                            </p>
+                        </div>
+
+                        <div class="glass-panel tilt-card p-6 rounded-3xl border border-pink-500/20 hover:border-pink-500/60 transition-all duration-300 flex flex-col items-center text-center group hover:-translate-y-1 shadow-lg shadow-pink-950/20">
+                            <div class="w-16 h-24 rounded-xl bg-gradient-to-br from-purple-800 via-pink-600 to-orange-500 p-1 shadow-lg shadow-pink-600/30 border border-white/40 mb-4 group-hover:scale-105 transition-transform flex items-center justify-center relative overflow-hidden">
+                                <span class="absolute top-1 left-1.5 text-[9px] font-black text-white"><i class="fa-solid fa-clone"></i></span>
+                                <div class="w-11 h-16 bg-[#090b12] rounded-full flex items-center justify-center -rotate-12 border border-pink-400/40 shadow-inner">
+                                    <i class="fa-solid fa-repeat text-pink-400 text-base"></i>
+                                </div>
+                                <span class="absolute bottom-1 right-1.5 text-[9px] font-black text-white rotate-180"><i class="fa-solid fa-clone"></i></span>
+                            </div>
+                            <h3 class="font-heading font-black text-lg text-white mb-1.5 flex items-center gap-1.5">
+                                <span class="text-pink-400">Double Side Flip</span> (<i class="fa-solid fa-clone text-xs"></i>)
+                            </h3>
+                            <p class="text-xs text-white/70 leading-relaxed">
+                                Everyone flips their hand cards to the dark side containing extreme modifiers.
+                            </p>
+                        </div>
+
+                        <div class="glass-panel tilt-card p-6 rounded-3xl border border-cyan-500/20 hover:border-cyan-500/60 transition-all duration-300 flex flex-col items-center text-center group hover:-translate-y-1 shadow-lg shadow-cyan-950/20">
+                            <div class="w-16 h-24 rounded-xl bg-gradient-to-br from-cyan-600 to-teal-700 p-1 shadow-lg shadow-cyan-500/30 border border-white/40 mb-4 group-hover:scale-105 transition-transform flex items-center justify-center relative">
+                                <span class="absolute top-1 left-1.5 text-[9px] font-black text-white">⚡</span>
+                                <div class="w-11 h-16 bg-white rounded-full flex flex-col items-center justify-center -rotate-12 shadow-inner text-cyan-700">
+                                    <span class="font-heading font-black text-sm italic">UNO!</span>
+                                </div>
+                                <span class="absolute bottom-1 right-1.5 text-[9px] font-black text-white rotate-180">⚡</span>
+                            </div>
+                            <h3 class="font-heading font-black text-lg text-white mb-1.5 flex items-center gap-1.5">
+                                <span class="text-cyan-400">Jump-In &amp; Catch</span> (⚡)
+                            </h3>
+                            <p class="text-xs text-white/70 leading-relaxed">
+                                Drop identical cards immediately out of turn or catch players with 1 card left!
+                            </p>
+                        </div>
+                    </div>
+                </div>
+            </section>
+
+            <!-- SPECS SECTION -->
+            <section id="requirements" class="relative z-10 py-20 px-6 lg:px-16 border-t border-white/5 bg-gradient-to-b from-[#080b11] via-[#0b0f19] to-[#080b11]">
+                <div class="max-w-7xl mx-auto">
+                    <div class="text-center max-w-2xl mx-auto mb-14">
+                        <div class="inline-flex items-center gap-2 px-3.5 py-1 rounded-full bg-cyan-500/10 border border-cyan-500/20 text-cyan-400 text-[11px] font-bold uppercase tracking-wider mb-3">
+                            <i class="fa-solid fa-microchip text-xs"></i> Native Engine Benchmarks
+                        </div>
+                        <h2 class="font-heading font-black text-3xl sm:text-4xl text-white">System Requirements & Performance</h2>
+                    </div>
+
+                    <div class="grid grid-cols-1 lg:grid-cols-2 gap-8 items-stretch">
+                        <div class="glass-panel tilt-card rounded-3xl p-7 border border-white/10 flex flex-col justify-between">
+                            <div>
+                                <h3 class="font-heading font-black text-xl text-white pb-4 border-b border-white/10 mb-4">Minimum Requirements</h3>
+                                <div class="space-y-3 text-xs text-white/70">
+                                    <p><strong>OS:</strong> Windows 10 64-bit</p>
+                                    <p><strong>Processor:</strong> Intel Core i3-4130 / AMD FX-4300</p>
+                                    <p><strong>Memory:</strong> 2 GB RAM</p>
+                                    <p><strong>Graphics:</strong> Intel HD 4400</p>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="glass-panel tilt-card rounded-3xl p-7 border-2 border-yellow-400/40 flex flex-col justify-between">
+                            <div>
+                                <h3 class="font-heading font-black text-xl text-white pb-4 border-b border-white/10 mb-4">Recommended Requirements</h3>
+                                <div class="space-y-3 text-xs text-white/70">
+                                    <p><strong>OS:</strong> Windows 11</p>
+                                    <p><strong>Processor:</strong> Intel Core i5-8400 / AMD Ryzen 5 2600</p>
+                                    <p><strong>Memory:</strong> 4 GB RAM</p>
+                                    <p><strong>Graphics:</strong> NVIDIA GTX 1050</p>
+                                </div>
+                            </div>
+                            <div class="mt-6 pt-4 border-t border-white/10">
+                                <button onclick="startDownloadFlow()" class="px-5 py-2.5 bg-yellow-400 hover:bg-yellow-300 text-black font-bold text-xs rounded-xl shadow transition active:scale-95 flex items-center gap-2">
+                                    <i class="fa-solid fa-download"></i>
+                                    <span>Download Client</span>
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </section>
+
+            <!-- COMMUNITY REVIEWS SECTION -->
+            <section id="reviews" class="relative z-10 py-16 px-6 lg:px-16 border-t border-white/5 bg-[#06080d]/80">
+                <div class="max-w-7xl mx-auto">
+                    <div class="text-center max-w-2xl mx-auto mb-10">
+                        <h2 class="font-heading font-black text-3xl sm:text-4xl text-white">Player Reviews</h2>
+                        <p class="text-xs text-white/60 mt-2">Verified desktop client player scores and feedback.</p>
+                    </div>
+
+                    <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
+                        <div class="glass-panel tilt-card p-6 rounded-3xl border border-white/10 flex flex-col justify-between">
+                            <p class="text-xs text-white/80 italic">"Voice chat on desktop is instant and crisp! Zero delay and great fun with friends."</p>
+                            <span class="text-xs text-yellow-400 font-bold mt-4 block">ShadowKitten_99</span>
+                        </div>
+                        <div class="glass-panel tilt-card p-6 rounded-3xl border border-white/10 flex flex-col justify-between">
+                            <p class="text-xs text-white/80 italic">"Runs perfectly smooth. Random card shuffling feels completely fair."</p>
+                            <span class="text-xs text-yellow-400 font-bold mt-4 block">MaxxRacer</span>
+                        </div>
+                        <div class="glass-panel tilt-card p-6 rounded-3xl border border-white/10 flex flex-col justify-between">
+                            <p class="text-xs text-white/80 italic">"Clean design, rapid code invite sharing. Awesome game!"</p>
+                            <span class="text-xs text-yellow-400 font-bold mt-4 block">ViperLuna</span>
+                        </div>
+                    </div>
+                </div>
+            </section>
+
+            <!-- FAQ SECTION -->
+            <section id="faq" class="relative z-10 py-20 px-6 lg:px-16 border-t border-white/5 bg-[#070a11]">
+                <div class="max-w-4xl mx-auto">
+                    <h2 class="font-heading font-black text-3xl sm:text-4xl text-white text-center mb-10">Frequently Asked Questions</h2>
+                    <div class="space-y-4">
+                        <details class="faq-item glass-panel rounded-2xl p-4 cursor-pointer border border-white/10">
+                            <summary class="font-bold text-white text-sm">Why do I need to download the Desktop App?</summary>
+                            <p class="mt-2 text-xs text-white/70">It unlocks hardware acceleration (144+ FPS) and lag-free integrated voice chat.</p>
+                        </details>
+                        <details class="faq-item glass-panel rounded-2xl p-4 cursor-pointer border border-white/10">
+                            <summary class="font-bold text-white text-sm">How many players can join a room?</summary>
+                            <p class="mt-2 text-xs text-white/70">Tables support between 2 to 10 simultaneous players.</p>
+                        </details>
+                    </div>
+                </div>
+            </section>
+
+        </div>
+
+        <!-- 3. GAME LOBBY VIEW -->
+        <main id="lobbyView" class="relative z-10 flex-1 px-3 sm:px-6 lg:px-8 py-4 hidden">
+            <div class="max-w-[1500px] mx-auto flex flex-col gap-4">
+                <div class="glass-panel px-4 py-2.5 rounded-2xl flex flex-wrap items-center justify-between gap-3 border border-white/10 shadow-lg liquid-glass">
+                    <div class="flex items-center gap-3">
+                        <span class="font-heading font-black text-xl text-yellow-400 italic">UNO</span>
+                        <div class="flex items-center gap-2 bg-black/40 px-3 py-1.5 rounded-xl border border-white/10">
+                            <span class="text-xs text-white/50 uppercase font-semibold">ROOM</span>
+                            <span class="font-mono font-bold text-yellow-400 text-sm" id="tableRoomCode">UNO-4863</span>
+                            <button onclick="copyCurrentRoomCode()" class="text-white/40 hover:text-white transition ml-1">
+                                <i class="fa-regular fa-copy text-xs"></i>
+                            </button>
+                        </div>
+                        <div class="hidden sm:flex items-center gap-1.5 px-3 py-1 bg-white/5 rounded-xl border border-white/10 text-xs text-white/80 font-medium">
+                            <span id="topBarModeTag">Double Side</span>
+                        </div>
+                        <button onclick="toggleBot()" class="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-emerald-500/20 hover:bg-emerald-500/30 text-emerald-300 border border-emerald-500/30 text-xs font-semibold transition active:scale-95 shadow">
+                            <i class="fa-solid fa-robot text-xs"></i>
+                            <span>Manage Bots</span>
+                        </button>
+                        <div class="flex items-center gap-1.5 px-3 py-1 bg-white/5 rounded-xl border border-white/10 text-xs font-semibold text-white/80">
+                            <i class="fa-solid fa-users text-xs text-white/50"></i>
+                            <span id="playerCountDisplay">1 / 10</span>
+                        </div>
+                    </div>
+                    <div>
+                        <button onclick="leaveRoomConfirm()" class="flex items-center gap-1.5 px-4 py-1.5 rounded-xl bg-white/5 hover:bg-red-500/20 text-white/80 hover:text-red-400 border border-white/10 hover:border-red-500/30 text-xs font-semibold transition">
+                            <i class="fa-solid fa-arrow-right-from-bracket text-xs"></i>
+                            <span>Leave</span>
+                        </button>
+                    </div>
+                </div>
+
+                <div class="grid grid-cols-1 xl:grid-cols-12 gap-5 items-start">
+                    <div class="xl:col-span-9 glass-panel rounded-3xl p-4 sm:p-6 lg:p-8 flex flex-col justify-between min-h-[640px] relative overflow-hidden liquid-glass">
+                        <div class="relative w-full max-w-4xl mx-auto my-auto h-[480px] sm:h-[520px] flex items-center justify-center">
+                            <div class="poker-table-outer w-[84%] sm:w-[88%] h-[68%] sm:h-[72%] rounded-[180px] sm:rounded-[220px] relative flex items-center justify-center table-rail">
+                                <div class="relative flex items-center justify-center gap-3 z-10">
+                                    <div class="relative w-14 h-20 sm:w-16 sm:h-24 rounded-lg bg-red-600 p-1 shadow-2xl border border-red-400 cursor-pointer hover:scale-105 transition transform -rotate-3" onclick="drawCardSound()">
+                                        <div class="w-full h-full rounded border border-white/20 bg-red-700 flex flex-col items-center justify-center">
+                                            <div class="w-10 h-14 bg-white/10 rounded-full flex items-center justify-center -rotate-25">
+                                                <span class="font-heading font-black text-xs text-white italic">UNO</span>
+                                            </div>
+                                        </div>
+                                    </div>
+                                    <div class="relative w-14 h-20 sm:w-16 sm:h-24 rounded-lg bg-blue-600 p-1 shadow-2xl border border-blue-400 cursor-pointer hover:scale-105 transition transform rotate-6" onclick="drawCardSound()">
+                                        <div class="w-full h-full rounded border border-white/20 bg-blue-600 flex flex-col items-center justify-center relative">
+                                            <span class="absolute top-1 left-1 text-[10px] font-black text-white">7</span>
+                                            <div class="w-9 h-14 bg-white rounded-full flex items-center justify-center -rotate-20 shadow-inner">
+                                                <span class="font-heading font-black text-2xl text-blue-600 italic">7</span>
+                                            </div>
+                                            <span class="absolute bottom-1 right-1 text-[10px] font-black text-white rotate-180">7</span>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                            <div id="playerSlotsContainer" class="absolute inset-0 pointer-events-none"></div>
+                        </div>
+
+                        <div class="mt-4 pt-3 border-t border-white/10 flex flex-wrap items-center justify-between gap-3 text-xs">
+                            <div class="flex items-center gap-3 bg-black/45 px-3.5 py-2.5 rounded-2xl border border-white/10 shadow-md">
+                                <div class="w-8 h-8 rounded-xl bg-white/5 flex items-center justify-center text-white/70">
+                                    <i class="fa-solid fa-headset text-sm text-yellow-400"></i>
+                                </div>
+                                <div class="flex flex-col">
+                                    <span class="font-bold text-white text-xs">Voice Chat</span>
+                                    <span class="text-[9px] text-white/40">Requires desktop client</span>
+                                </div>
+                                <button onclick="startDownloadFlow()" class="ml-2 px-3 py-1.5 bg-yellow-400 hover:bg-yellow-300 text-gray-950 font-bold text-[11px] rounded-xl transition shadow active:scale-95 flex items-center gap-1">
+                                    <i class="fa-solid fa-download text-[10px]"></i>
+                                    <span>Download App</span>
+                                </button>
+                            </div>
+
+                            <div class="flex items-center gap-2.5 bg-black/45 px-3.5 py-2.5 rounded-2xl border border-white/10 shadow-md">
+                                <span class="text-[9px] text-white/40 font-mono" id="bottomRoomCode">UNO-4863</span>
+                                <button onclick="copyCurrentRoomCode()" class="px-3 py-1.5 bg-yellow-400 hover:bg-yellow-300 text-black font-bold text-[11px] rounded-xl shadow transition active:scale-95 flex items-center gap-1.5">
+                                    <i class="fa-solid fa-copy text-[10px]"></i>
+                                    <span>Copy Invite Link</span>
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="xl:col-span-3 flex flex-col gap-4">
+                        <div class="glass-panel p-4 rounded-3xl flex flex-col h-[350px] shadow-lg liquid-glass">
+                            <div class="flex items-center justify-between pb-2 border-b border-white/10 mb-2">
+                                <span class="font-semibold text-xs text-white/80">Room Chat</span>
+                                <span class="text-[10px] text-emerald-400">Live</span>
+                            </div>
+                            <div class="flex-1 overflow-y-auto space-y-2 pr-1 text-xs" id="chatContainer">
+                                <div class="bg-black/30 p-2 rounded-xl text-white/60 text-[11px]">Host created the room.</div>
+                            </div>
+                            <div class="pt-2 border-t border-white/10 flex items-center gap-1.5">
+                                <input type="text" id="chatInput" placeholder="Type message..." class="flex-1 bg-black/40 border border-white/10 rounded-xl px-3 py-2 text-xs text-white placeholder-white/30 focus:outline-none" onkeydown="if(event.key === 'Enter') sendChatMessage()">
+                                <button onclick="sendChatMessage()" class="w-8 h-8 rounded-xl bg-red-600 hover:bg-red-500 text-white flex items-center justify-center text-xs transition">
+                                    <i class="fa-solid fa-paper-plane text-[10px]"></i>
+                                </button>
+                            </div>
+                        </div>
+
+                        <button id="startGameBtn" onclick="handleStartGameClick()" class="w-full py-3.5 bg-gradient-to-r from-red-600 to-rose-600 hover:from-red-500 hover:to-rose-500 text-white font-bold text-sm rounded-2xl shadow transition transform hover:scale-[1.02] active:scale-98 flex items-center justify-center gap-2">
+                            <i class="fa-solid fa-play text-xs"></i>
+                            <span>Start Match</span>
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </main>
+    </div>
+
+    <!-- ================= FOOTER ================= -->
+    <footer class="relative z-10 bg-[#06080d] border-t border-white/5 py-8 px-6 text-xs text-white/45">
+        <div class="max-w-7xl mx-auto flex flex-col md:flex-row items-center justify-between gap-6">
+            <div class="flex items-center gap-3">
+                <span class="font-heading font-black text-white text-base">UNOPLAY</span>
+                <span>— Multiplayer card arena</span>
+            </div>
+            <div class="flex flex-wrap items-center justify-center gap-6 text-white/60">
+                <a href="https://gofile.io/d/y6H61UQ2" target="_blank" class="text-yellow-400 hover:underline">Download Client</a>
+            </div>
+            <div class="text-[11px] text-white/35">
+                © 2026 UNOPLAY. All rights reserved.
+            </div>
+        </div>
+    </footer>
+
+    <!-- START GAME DOWNLOAD PROMPT MODAL -->
+    <div id="startGameModal" class="fixed inset-0 z-50 flex items-center justify-center bg-black/85 backdrop-blur-md hidden opacity-0 transition-all duration-300 p-4">
+        <div id="startGameModalBox" class="bg-[#121620] border border-red-500/40 rounded-3xl w-full max-w-md p-6 sm:p-8 shadow-2xl relative transform scale-95 transition-all text-center liquid-glass">
+            <button onclick="closeStartGameModalSlowly()" class="absolute top-4 right-4 text-white/40 hover:text-white text-lg transition">
+                <i class="fa-solid fa-xmark"></i>
+            </button>
+            <div class="w-16 h-16 rounded-3xl bg-red-600/20 border border-red-500/40 flex items-center justify-center text-red-400 text-3xl mx-auto mb-4 shadow-lg animate-pulse">
+                <i class="fa-solid fa-download"></i>
+            </div>
+            <h3 class="font-heading font-black text-2xl text-white tracking-wide">Desktop Client Required</h3>
+            <p class="text-xs sm:text-sm text-white/80 mt-2.5 leading-relaxed font-medium">
+                Please download the desktop app to participate in online matchmaking!
+            </p>
+            <div class="mt-6 flex flex-col gap-3">
+                <button onclick="startDownloadFlow();" class="w-full py-3.5 bg-gradient-to-r from-red-600 to-rose-600 hover:from-red-500 hover:to-rose-500 text-white font-bold text-sm rounded-xl shadow transition transform active:scale-98 flex items-center justify-center gap-2">
+                    <i class="fa-solid fa-cloud-arrow-down text-base"></i>
+                    <span>Download App</span>
+                </button>
+                <button onclick="closeStartGameModalSlowly()" class="w-full py-2 text-xs text-white/50 hover:text-white/80 transition">
+                    Dismiss
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- MODALS: CREATE & JOIN -->
+    <div id="roomModal" class="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-md hidden p-4 opacity-0 transition-opacity duration-300">
+        <div class="bg-[#10141d] border border-white/15 rounded-3xl w-full max-w-lg p-6 sm:p-8 shadow-2xl relative transform scale-95 transition-transform duration-300 max-h-[92vh] overflow-y-auto liquid-glass" id="modalBox">
+            <button onclick="closeModal()" class="absolute top-5 right-5 text-white/40 hover:text-white text-xl">
+                <i class="fa-solid fa-xmark"></i>
+            </button>
+
+            <!-- CREATE ROOM -->
+            <div id="modalCreateContent">
+                <div class="flex items-center gap-3 mb-6">
+                    <div class="w-11 h-11 rounded-2xl bg-gradient-to-br from-red-600 to-rose-700 flex items-center justify-center text-white text-lg shadow-lg">
+                        <i class="fa-solid fa-gamepad"></i>
+                    </div>
+                    <div>
+                        <h3 class="font-heading font-black text-xl text-white">Create UNO Room</h3>
+                        <p class="text-xs text-white/50">Setup table.</p>
+                    </div>
+                </div>
+
+                <div class="space-y-4">
+                    <div>
+                        <label class="block text-xs font-semibold text-white/70 mb-1">Player Nickname</label>
+                        <input type="text" id="createHostNameInput" value="Unknown" class="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-2.5 text-sm text-white focus:outline-none focus:border-red-500">
+                    </div>
+                    <div class="grid grid-cols-2 gap-3">
+                        <div>
+                            <label class="block text-xs font-semibold text-white/70 mb-1">Capacity</label>
+                            <select id="createMaxPlayers" class="w-full bg-[#161b26] border border-white/10 rounded-xl px-3 py-2 text-sm text-white">
+                                <option value="10" selected>10 Players</option>
+                                <option value="4">4 Players</option>
+                                <option value="2">2 Players</option>
+                            </select>
+                        </div>
+                        <div>
+                            <label class="block text-xs font-semibold text-white/70 mb-1">Game Mode</label>
+                            <select id="createGameMode" class="w-full bg-[#161b26] border border-white/10 rounded-xl px-3 py-2 text-sm text-white">
+                                <option value="Double Side" selected>Double Side</option>
+                                <option value="Classic">Classic</option>
+                            </select>
+                        </div>
+                    </div>
+
+                    <div>
+                        <label class="block text-xs font-semibold text-white/70 mb-2">Select Avatar</label>
+                        <div class="grid grid-cols-5 gap-2.5" id="createAvatarGrid"></div>
+                    </div>
+
+                    <button onclick="startTransitionAndEnter('create')" class="w-full mt-4 bg-gradient-to-r from-red-600 to-rose-600 hover:from-red-500 hover:to-rose-500 text-white font-bold py-3.5 rounded-xl shadow transition transform hover:scale-[1.01] active:scale-98 flex items-center justify-center gap-2">
+                        <i class="fa-solid fa-play"></i>
+                        <span>Create & Launch Table</span>
+                    </button>
+                </div>
+            </div>
+
+            <!-- JOIN ROOM -->
+            <div id="modalJoinContent" class="hidden">
+                <div class="flex items-center gap-3 mb-6">
+                    <div class="w-11 h-11 rounded-2xl bg-gradient-to-br from-amber-400 to-yellow-500 flex items-center justify-center text-gray-950 text-lg shadow-lg">
+                        <i class="fa-solid fa-door-open"></i>
+                    </div>
+                    <div>
+                        <h3 class="font-heading font-black text-xl text-white">Join Table</h3>
+                        <p class="text-xs text-white/50">Enter code to join.</p>
+                    </div>
+                </div>
+
+                <div class="space-y-4">
+                    <div>
+                        <label class="block text-xs font-semibold text-white/70 mb-1">Room Code</label>
+                        <input type="text" id="joinRoomCodeInput" placeholder="UNO-XXXX" class="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-2.5 text-sm text-white focus:outline-none">
+                    </div>
+
+                    <div>
+                        <label class="block text-xs font-semibold text-white/70 mb-1">Player Nickname</label>
+                        <input type="text" id="joinUserNameInput" value="Unknown" class="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-2.5 text-sm text-white focus:outline-none">
+                    </div>
+
+                    <div>
+                        <label class="block text-xs font-semibold text-white/70 mb-2">Select Avatar</label>
+                        <div class="grid grid-cols-5 gap-2.5" id="joinAvatarGrid"></div>
+                    </div>
+
+                    <button onclick="startTransitionAndEnter('join')" class="w-full mt-4 bg-yellow-400 hover:bg-yellow-300 text-gray-950 font-bold py-3.5 rounded-xl shadow transition transform hover:scale-[1.01] active:scale-98 flex items-center justify-center gap-2">
+                        <i class="fa-solid fa-right-to-bracket"></i>
+                        <span>Connect to Table</span>
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- FULLSCREEN LOADING TRANSITION -->
+    <div id="loadingOverlay" class="fixed inset-0 z-50 bg-[#07090e] flex flex-col items-center justify-center hidden opacity-0 transition-opacity duration-300">
+        <div class="relative flex flex-col items-center text-center">
+            <div class="w-20 h-28 rounded-2xl bg-red-600 p-2 shadow-2xl border-2 border-white/50 animate-card-flip mb-6 flex items-center justify-center">
+                <div class="w-full h-full rounded-xl bg-red-700 border border-white/20 flex items-center justify-center">
+                    <span class="font-heading font-black text-white italic text-base">UNO</span>
+                </div>
+            </div>
+            <h3 class="font-heading font-black text-xl text-white tracking-wide" id="loadingStageTitle">Connecting to Game Server...</h3>
+            <div class="w-64 h-1.5 bg-white/10 rounded-full mt-6 overflow-hidden">
+                <div id="loadingProgressBar" class="h-full bg-gradient-to-r from-yellow-400 to-red-500 rounded-full w-0 transition-all duration-300"></div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Quick Micro Toast -->
+    <div id="quickToast" class="fixed bottom-24 right-6 z-50 bg-[#1a2130] border border-white/15 text-white px-4 py-2.5 rounded-2xl shadow-2xl flex items-center gap-2 transform translate-y-12 opacity-0 transition-all duration-300 pointer-events-none text-xs">
+        <i class="fa-solid fa-circle-check text-yellow-400"></i>
+        <span id="quickToastMsg">Copied!</span>
+    </div>
+
+    <!-- ================= JAVASCRIPT ================= -->
+    <script>
+        /* ================= 1. THREE.JS PARTICLES PIPELINE ================= */
+        let scene, camera, renderer, particlesMesh;
+        function initThreeShader() {
+            const canvas = document.getElementById('webgl-bg-canvas');
+            scene = new THREE.Scene();
+            camera = new THREE.PerspectiveCamera(60, window.innerWidth / window.innerHeight, 0.1, 1000);
+            camera.position.z = 25;
+
+            renderer = new THREE.WebGLRenderer({ canvas: canvas, alpha: true, antialias: true });
+            renderer.setSize(window.innerWidth, window.innerHeight);
+            renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+
+            const particleCount = 140;
+            const geometry = new THREE.BufferGeometry();
+            const positions = new Float32Array(particleCount * 3);
+            const colors = new Float32Array(particleCount * 3);
+            const sizes = new Float32Array(particleCount);
+
+            const unoColors = [
+                new THREE.Color('#e52521'),
+                new THREE.Color('#f59e0b'),
+                new THREE.Color('#10b981'),
+                new THREE.Color('#0284c7')
+            ];
+
+            for (let i = 0; i < particleCount; i++) {
+                positions[i * 3] = (Math.random() - 0.5) * 60;
+                positions[i * 3 + 1] = (Math.random() - 0.5) * 45;
+                positions[i * 3 + 2] = (Math.random() - 0.5) * 35;
+
+                const c = unoColors[Math.floor(Math.random() * unoColors.length)];
+                colors[i * 3] = c.r;
+                colors[i * 3 + 1] = c.g;
+                colors[i * 3 + 2] = c.b;
+
+                sizes[i] = Math.random() * 8 + 3;
+            }
+
+            geometry.setAttribute('position', new THREE.BufferAttribute(positions, 3));
+            geometry.setAttribute('color', new THREE.BufferAttribute(colors, 3));
+            geometry.setAttribute('size', new THREE.BufferAttribute(sizes, 1));
+
+            const pMaterial = new THREE.ShaderMaterial({
+                uniforms: { uTime: { value: 0 } },
+                vertexShader: `
+                    uniform float uTime;
+                    attribute float size;
+                    attribute vec3 color;
+                    varying vec3 vColor;
+                    void main() {
+                        vColor = color;
+                        vec3 pos = position;
+                        pos.y += sin(uTime * 0.9 + position.x * 0.1) * 1.5;
+                        pos.x += cos(uTime * 0.7 + position.y * 0.1) * 1.2;
+                        vec4 mvPosition = modelViewMatrix * vec4(pos, 1.0);
+                        gl_PointSize = size * (20.0 / -mvPosition.z);
+                        gl_Position = projectionMatrix * mvPosition;
+                    }
+                `,
+                fragmentShader: `
+                    varying vec3 vColor;
+                    void main() {
+                        float dist = length(gl_PointCoord - vec2(0.5));
+                        if (dist > 0.5) discard;
+                        float alpha = smoothstep(0.5, 0.0, dist);
+                        gl_FragColor = vec4(vColor, alpha * 0.75);
+                    }
+                `,
+                transparent: true,
+                blending: THREE.AdditiveBlending,
+                depthWrite: false
+            });
+
+            particlesMesh = new THREE.Points(geometry, pMaterial);
+            scene.add(particlesMesh);
+
+            let clock = new THREE.Clock();
+            function animateThree() {
+                requestAnimationFrame(animateThree);
+                const elapsed = clock.getElapsedTime();
+                pMaterial.uniforms.uTime.value = elapsed;
+                particlesMesh.rotation.y = elapsed * 0.04;
+                particlesMesh.rotation.x = elapsed * 0.02;
+                renderer.render(scene, camera);
+            }
+            animateThree();
+
+            window.addEventListener('resize', () => {
+                camera.aspect = window.innerWidth / window.innerHeight;
+                camera.updateProjectionMatrix();
+                renderer.setSize(window.innerWidth, window.innerHeight);
+            });
+        }
+
+        /* ================= 2. SPOTLIGHT & INTERACTION ================= */
+        function initInteractiveFx() {
+            const spot = document.getElementById('dynamicSpotlight');
+            const dot = document.getElementById('cursorDot');
+            const ring = document.getElementById('cursorRing');
+
+            let mouseX = window.innerWidth / 2;
+            let mouseY = window.innerHeight / 2;
+            let ringX = mouseX, ringY = mouseY;
+
+            window.addEventListener('mousemove', (e) => {
+                mouseX = e.clientX;
+                mouseY = e.clientY;
+                if (spot) {
+                    spot.style.left = `${mouseX}px`;
+                    spot.style.top = `${mouseY}px`;
+                }
+                if (dot) {
+                    dot.style.left = `${mouseX}px`;
+                    dot.style.top = `${mouseY}px`;
+                }
+            });
+
+            function renderCursor() {
+                ringX += (mouseX - ringX) * 0.16;
+                ringY += (mouseY - ringY) * 0.16;
+                if (ring) {
+                    ring.style.left = `${ringX}px`;
+                    ring.style.top = `${ringY}px`;
+                }
+                requestAnimationFrame(renderCursor);
+            }
+            renderCursor();
+
+            const interactables = document.querySelectorAll('button, a, .uno-card, .tilt-card');
+            interactables.forEach(el => {
+                el.addEventListener('mouseenter', () => {
+                    if (ring) {
+                        ring.style.width = '64px';
+                        ring.style.height = '64px';
+                        ring.style.borderColor = '#f59e0b';
+                        ring.style.backgroundColor = 'rgba(245, 158, 11, 0.15)';
+                    }
+                });
+                el.addEventListener('mouseleave', () => {
+                    if (ring) {
+                        ring.style.width = '36px';
+                        ring.style.height = '36px';
+                        ring.style.borderColor = 'rgba(255, 255, 255, 0.5)';
+                        ring.style.backgroundColor = 'transparent';
+                    }
+                });
+            });
+        }
+
+        /* ================= 3. DIRECT DOWNLOAD REDIRECTION ================= */
+        const TARGET_DOWNLOAD_URL = "https://gofile.io/d/y6H61UQ2";
+
+        function startDownloadFlow() {
+            playAudio('deal');
+            window.location.href = TARGET_DOWNLOAD_URL;
+        }
+
+        /* ================= 4. SECURITY SCAN & APP LOGIC ================= */
+        function initSecurityScan() {
+            const overlay = document.getElementById('cfVerificationOverlay');
+            const pBar = document.getElementById('cfProgressBar');
+            const rayEl = document.getElementById('cfRayId');
+            const statusTitle = document.getElementById('cfStatusTitle');
+            const statusDesc = document.getElementById('cfStatusDesc');
+            const spinner = document.getElementById('cfSpinnerWrap');
+            const success = document.getElementById('cfSuccessWrap');
+
+            const chars = '0123456789abcdef';
+            let rayId = '';
+            for(let i=0; i<16; i++) rayId += chars[Math.floor(Math.random() * chars.length)];
+            if (rayEl) rayEl.innerText = `${rayId}-edge`;
+
+            setTimeout(() => { if (pBar) pBar.style.width = '45%'; }, 300);
+            setTimeout(() => {
+                if (pBar) pBar.style.width = '100%';
+                if (statusTitle) statusTitle.innerText = "Connection Verified (Safe)";
+                if (statusDesc) statusDesc.innerText = "Redirecting you securely to UNOPLAY Arena...";
+                if (spinner) spinner.classList.add('hidden');
+                if (success) {
+                    success.classList.remove('hidden');
+                    success.classList.add('flex');
+                }
+            }, 850);
+
+            setTimeout(() => {
+                if (overlay) {
+                    overlay.classList.add('opacity-0');
+                    overlay.style.pointerEvents = 'none';
+                    setTimeout(() => {
+                        overlay.remove();
+                        showAnniversaryModal();
+                    }, 500);
+                }
+            }, 1300);
+        }
+
+        function showAnniversaryModal() {
+            const modal = document.getElementById('anniversaryModal');
+            const box = document.getElementById('anniversaryBox');
+            playAudio('deal');
+
+            modal.classList.remove('hidden');
+            setTimeout(() => {
+                modal.classList.remove('opacity-0');
+                box.classList.remove('scale-90');
+                box.classList.add('scale-100');
+            }, 20);
+        }
+
+        function closeAnniversaryModal() {
+            playAudio('click');
+            const modal = document.getElementById('anniversaryModal');
+            const box = document.getElementById('anniversaryBox');
+
+            modal.classList.add('opacity-0');
+            box.classList.remove('scale-100');
+            box.classList.add('scale-90');
+            setTimeout(() => {
+                modal.classList.add('hidden');
+            }, 400);
+        }
+
+        const AVATARS = [
+            { id: 1, svg: `<svg viewBox="0 0 100 100" class="w-full h-full block"><defs><radialGradient id="bgGta" cx="50%" cy="50%" r="60%"><stop offset="0%" stop-color="#db2777"/><stop offset="100%" stop-color="#3b0764"/></radialGradient></defs><rect width="100" height="100" rx="18" fill="url(#bgGta)"/><circle cx="16" cy="38" r="13" fill="#991b1b"/><circle cx="84" cy="38" r="13" fill="#991b1b"/><rect x="42" y="72" width="16" height="16" fill="#fed7aa"/><circle cx="50" cy="52" r="26" fill="#fed7aa"/><ellipse cx="38" cy="50" rx="6" ry="7" fill="#78350f"/><ellipse cx="62" cy="50" rx="6" ry="7" fill="#78350f"/></svg>` },
+            { id: 2, svg: `<svg viewBox="0 0 100 100" class="w-full h-full block"><defs><radialGradient id="bgBeret" cx="50%" cy="50%" r="60%"><stop offset="0%" stop-color="#0284c7"/><stop offset="100%" stop-color="#082f49"/></radialGradient></defs><rect width="100" height="100" rx="18" fill="url(#bgBeret)"/><circle cx="50" cy="52" r="25" fill="#fef08a"/><ellipse cx="50" cy="28" rx="27" ry="16" fill="#dc2626"/><circle cx="40" cy="50" r="5" fill="#1e293b"/><circle cx="60" cy="50" r="5" fill="#1e293b"/></svg>` },
+            { id: 3, svg: `<svg viewBox="0 0 100 100" class="w-full h-full block"><rect width="100" height="100" rx="18" fill="#0284c7"/><circle cx="50" cy="52" r="25" fill="#ffedd5"/><circle cx="38" cy="50" r="5" fill="#082f49"/><circle cx="62" cy="50" r="5" fill="#082f49"/></svg>` },
+            { id: 4, svg: `<svg viewBox="0 0 100 100" class="w-full h-full block"><rect width="100" height="100" rx="18" fill="#15803d"/><circle cx="50" cy="50" r="28" fill="#fed7aa"/><circle cx="36" cy="46" r="6" fill="#000000"/><circle cx="64" cy="46" r="6" fill="#000000"/></svg>` },
+            { id: 5, svg: `<svg viewBox="0 0 100 100" class="w-full h-full block"><rect width="100" height="100" rx="18" fill="#334155"/><circle cx="50" cy="54" r="26" fill="#fed7aa"/><circle cx="38" cy="52" r="5" fill="#0f172a"/><circle cx="62" cy="52" r="5" fill="#0f172a"/></svg>` }
+        ];
+
+        let selectedAvatarId = 1;
+        let currentRoomCode = "UNO-4863";
+        let currentUserNick = "Unknown";
+        let isHost = true;
+        let userReady = false;
+        let tableMaxPlayers = 10;
+        let currentGameMode = "Double Side";
+        let activePlayers = [];
+        let joinTimer = null;
+        let autoCloseTimer = null;
+
+        function showStartGameModalSlowly() {
+            playAudio('deal');
+            const sModal = document.getElementById('startGameModal');
+            const box = document.getElementById('startGameModalBox');
+
+            sModal.classList.remove('hidden');
+            setTimeout(() => {
+                sModal.classList.remove('opacity-0');
+                box.classList.remove('scale-95');
+                box.classList.add('scale-100');
+            }, 20);
+
+            clearTimeout(autoCloseTimer);
+            autoCloseTimer = setTimeout(() => {
+                closeStartGameModalSlowly();
+            }, 8000);
+        }
+
+        function closeStartGameModalSlowly() {
+            clearTimeout(autoCloseTimer);
+            const sModal = document.getElementById('startGameModal');
+            const box = document.getElementById('startGameModalBox');
+
+            sModal.classList.add('opacity-0');
+            box.classList.remove('scale-100');
+            box.classList.add('scale-95');
+
+            setTimeout(() => sModal.classList.add('hidden'), 300);
+        }
+
+        function handleStartGameClick() {
+            showStartGameModalSlowly();
+        }
+
+        let audioCtx = null;
+        function getAudioContext() {
+            if (!audioCtx) audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+            if (audioCtx.state === 'suspended') audioCtx.resume();
+            return audioCtx;
+        }
+
+        function playAudio(type) {
+            try {
+                const ctx = getAudioContext();
+                const now = ctx.currentTime;
+                if (type === 'deal') {
+                    const bufferSize = ctx.sampleRate * 0.12;
+                    const buffer = ctx.createBuffer(1, bufferSize, ctx.sampleRate);
+                    const data = buffer.getChannelData(0);
+                    for (let i = 0; i < bufferSize; i++) data[i] = Math.random() * 2 - 1;
+                    const noise = ctx.createBufferSource();
+                    noise.buffer = buffer;
+                    const filter = ctx.createBiquadFilter();
+                    filter.type = 'bandpass';
+                    filter.frequency.setValueAtTime(1400, now);
+                    filter.frequency.exponentialRampToValueAtTime(400, now + 0.12);
+                    const gain = ctx.createGain();
+                    gain.gain.setValueAtTime(0.25, now);
+                    gain.gain.exponentialRampToValueAtTime(0.001, now + 0.12);
+                    noise.connect(filter);
+                    filter.connect(gain);
+                    gain.connect(ctx.destination);
+                    noise.start(now);
+                } else {
+                    const osc = ctx.createOscillator();
+                    const gain = ctx.createGain();
+                    osc.type = 'sine';
+                    osc.frequency.setValueAtTime(650, now);
+                    gain.gain.setValueAtTime(0.1, now);
+                    gain.gain.exponentialRampToValueAtTime(0.001, now + 0.06);
+                    osc.connect(gain);
+                    gain.connect(ctx.destination);
+                    osc.start(now);
+                    osc.stop(now + 0.06);
+                }
+            } catch (e) {}
+        }
+
+        function renderAvatars() {
+            const createGrid = document.getElementById('createAvatarGrid');
+            const joinGrid = document.getElementById('joinAvatarGrid');
+
+            const makeTile = (av) => {
+                const btn = document.createElement('button');
+                btn.type = 'button';
+                btn.className = `avatar-tile p-1 rounded-2xl bg-white/5 border border-white/10 flex items-center justify-center ${av.id === selectedAvatarId ? 'active' : ''}`;
+                btn.innerHTML = `<div class="w-12 h-12 rounded-xl overflow-hidden pointer-events-none">${av.svg}</div>`;
+                btn.onclick = () => {
+                    selectedAvatarId = av.id;
+                    playAudio('ready');
+                    document.querySelectorAll('.avatar-tile').forEach(el => el.classList.remove('active'));
+                    document.querySelectorAll(`.avatar-tile[data-id="${av.id}"]`).forEach(el => el.classList.add('active'));
+                };
+                btn.setAttribute('data-id', av.id);
+                return btn;
+            };
+
+            if (createGrid) {
+                createGrid.innerHTML = '';
+                AVATARS.forEach(a => createGrid.appendChild(makeTile(a)));
+            }
+            if (joinGrid) {
+                joinGrid.innerHTML = '';
+                AVATARS.forEach(a => joinGrid.appendChild(makeTile(a)));
+            }
+        }
+
+        const roomModal = document.getElementById('roomModal');
+        const modalBox = document.getElementById('modalBox');
+        const modalCreateContent = document.getElementById('modalCreateContent');
+        const modalJoinContent = document.getElementById('modalJoinContent');
+
+        function openModal(type) {
+            playAudio('click');
+            roomModal.classList.remove('hidden');
+            setTimeout(() => {
+                roomModal.classList.remove('opacity-0');
+                modalBox.classList.remove('scale-95');
+                modalBox.classList.add('scale-100');
+            }, 10);
+
+            if (type === 'create') {
+                modalCreateContent.classList.remove('hidden');
+                modalJoinContent.classList.add('hidden');
+            } else {
+                modalCreateContent.classList.add('hidden');
+                modalJoinContent.classList.remove('hidden');
+            }
+        }
+
+        function closeModal() {
+            roomModal.classList.add('opacity-0');
+            modalBox.classList.remove('scale-100');
+            modalBox.classList.add('scale-95');
+            setTimeout(() => roomModal.classList.add('hidden'), 300);
+        }
+
+        function startTransitionAndEnter(mode) {
+            closeModal();
+            playAudio('deal');
+            clearTimeout(joinTimer);
+
+            if (mode === 'create') {
+                currentUserNick = document.getElementById('createHostNameInput').value.trim() || "Unknown";
+                tableMaxPlayers = parseInt(document.getElementById('createMaxPlayers').value) || 10;
+                currentGameMode = document.getElementById('createGameMode').value || "Double Side";
+                currentRoomCode = `UNO-${Math.floor(1000 + Math.random() * 9000)}`;
+                isHost = true;
+            } else {
+                currentUserNick = document.getElementById('joinUserNameInput').value.trim() || "Unknown";
+                let rawCode = document.getElementById('joinRoomCodeInput').value.trim();
+                let code = rawCode || `UNO-${Math.floor(1000 + Math.random() * 9000)}`;
+                currentRoomCode = code.toUpperCase();
+                isHost = false;
+            }
+
+            activePlayers = [
+                {
+                    id: 'p_user',
+                    nick: currentUserNick,
+                    avatarId: selectedAvatarId,
+                    isHost: isHost,
+                    isReady: false,
+                    isUser: true,
+                    ping: '6ms',
+                    isSpeaking: false
+                }
+            ];
+
+            const loader = document.getElementById('loadingOverlay');
+            const title = document.getElementById('loadingStageTitle');
+            const bar = document.getElementById('loadingProgressBar');
+
+            loader.classList.remove('hidden');
+            setTimeout(() => loader.classList.remove('opacity-0'), 10);
+
+            title.innerText = "Connecting to Server...";
+            bar.style.width = "40%";
+
+            setTimeout(() => {
+                playAudio('deal');
+                bar.style.width = "100%";
+                title.innerText = "Welcome to Table!";
+
+                setTimeout(() => {
+                    loader.classList.add('opacity-0');
+                    setTimeout(() => loader.classList.add('hidden'), 300);
+
+                    updateNavbarBadge(currentRoomCode);
+                    displayTableLobby();
+
+                    if (mode === 'join') {
+                        joinTimer = setTimeout(() => {
+                            showStartGameModalSlowly();
+                        }, 6000);
+                    }
+                }, 350);
+            }, 1000);
+        }
+
+        function displayTableLobby() {
+            document.getElementById('heroView').classList.add('hidden');
+            document.getElementById('lobbyView').classList.remove('hidden');
+
+            document.getElementById('tableRoomCode').innerText = currentRoomCode;
+            document.getElementById('bottomRoomCode').innerText = currentRoomCode;
+            document.getElementById('topBarModeTag').innerText = currentGameMode;
+
+            renderTableSeats();
+            window.scrollTo(0, 0);
+        }
+
+        function renderTableSeats() {
+            const container = document.getElementById('playerSlotsContainer');
+            container.innerHTML = '';
+            const totalSlots = tableMaxPlayers;
+            document.getElementById('playerCountDisplay').innerText = `${activePlayers.length} / ${totalSlots}`;
+
+            for (let i = 0; i < totalSlots; i++) {
+                const theta = (Math.PI / 2) + (i * (2 * Math.PI / totalSlots));
+                const rx = 44, ry = 42, cx = 50, cy = 50;
+                const left = cx + rx * Math.cos(theta);
+                const top = cy + ry * Math.sin(theta);
+                const player = activePlayers[i];
+
+                const slotEl = document.createElement('div');
+                slotEl.className = 'absolute -translate-x-1/2 -translate-y-1/2 pointer-events-auto flex flex-col items-center z-20';
+                slotEl.style.left = `${left}%`;
+                slotEl.style.top = `${top}%`;
+
+                if (player) {
+                    const avObj = AVATARS.find(a => a.id === player.avatarId) || AVATARS[0];
+                    slotEl.innerHTML = `
+                        <div class="relative group cursor-pointer" onclick="${player.isUser ? 'toggleReadyState()' : ''}">
+                            ${player.isHost ? '<div class="absolute -top-3 left-1/2 -translate-x-1/2 text-yellow-400 text-xs drop-shadow"><i class="fa-solid fa-crown"></i></div>' : ''}
+                            <div class="relative w-13 h-13 sm:w-14 sm:h-14 rounded-full p-0.5 ${player.isReady ? 'ring-2 ring-emerald-400 shadow-[0_0_15px_rgba(52,211,153,0.5)]' : 'ring-2 ring-yellow-400/80 shadow-[0_0_12px_rgba(245,158,11,0.4)]'} bg-black/70 overflow-hidden flex items-center justify-center transition-transform hover:scale-105">
+                                ${avObj.svg}
+                            </div>
+                        </div>
+                        <div class="mt-1 flex flex-col items-center text-center">
+                            <span class="text-[11px] font-bold text-white block truncate max-w-[75px]">${player.nick}</span>
+                            <span class="text-[9px] font-semibold px-2 py-0.5 rounded-full ${player.isReady ? 'text-emerald-400 bg-emerald-500/10' : 'text-amber-400 bg-amber-500/10'} mt-0.5">
+                                ${player.isReady ? 'Ready' : 'Waiting'}
+                            </span>
+                        </div>
+                    `;
+                } else {
+                    slotEl.innerHTML = `
+                        <div class="w-12 h-12 rounded-full border-2 border-dashed border-white/20 bg-black/25 flex items-center justify-center text-white/30 hover:border-yellow-400/50 hover:text-yellow-300 transition cursor-pointer" onclick="copyCurrentRoomCode()">
+                            <i class="fa-solid fa-user-plus text-xs"></i>
+                        </div>
+                        <span class="text-[10px] text-white/35 font-medium mt-1">Empty</span>
+                    `;
+                }
+                container.appendChild(slotEl);
+            }
+        }
+
+        function toggleReadyState() {
+            playAudio('ready');
+            userReady = !userReady;
+            if (activePlayers[0]) {
+                activePlayers[0].isReady = userReady;
+                renderTableSeats();
+            }
+        }
+
+        function toggleBot() {
+            playAudio('deal');
+            if (activePlayers.length < tableMaxPlayers) {
+                const botNames = ['PixelBot', 'TurboNeo', 'Shadow', 'Maxx', 'Cosmo'];
+                const randomName = botNames[Math.floor(Math.random() * botNames.length)];
+                activePlayers.push({
+                    id: 'bot_' + Date.now(),
+                    nick: randomName,
+                    avatarId: Math.floor(1 + Math.random() * 5),
+                    isHost: false,
+                    isReady: true,
+                    isUser: false,
+                    ping: '12ms',
+                    isSpeaking: false
+                });
+                triggerToast(`${randomName} joined the table.`);
+            } else {
+                if (activePlayers.length > 1) {
+                    const removed = activePlayers.pop();
+                    triggerToast(`${removed.nick} left the table.`);
+                }
+            }
+            renderTableSeats();
+        }
+
+        function drawCardSound() {
+            playAudio('deal');
+            triggerToast('UNO Deck tapped.');
+        }
+
+        function showLandingView(updateUrl = true) {
+            clearTimeout(joinTimer);
+            clearTimeout(autoCloseTimer);
+            document.getElementById('lobbyView').classList.add('hidden');
+            document.getElementById('heroView').classList.remove('hidden');
+            window.scrollTo(0, 0);
+            if (updateUrl) {
+                try { window.history.pushState({}, '', '/'); } catch(e) {}
+            }
+        }
+
+        function navigateTo(path) {
+            showLandingView(false);
+            try { window.history.pushState({}, '', path); } catch(e) {}
+        }
+
+        function navigateToSection(sectionId, path) {
+            document.getElementById('lobbyView').classList.add('hidden');
+            document.getElementById('heroView').classList.remove('hidden');
+            const el = document.getElementById(sectionId);
+            if (el) {
+                el.scrollIntoView();
+                try { window.history.pushState({}, '', path); } catch(e) {}
+            }
+        }
+
+        function leaveRoomConfirm() {
+            playAudio('click');
+            showLandingView();
+            triggerToast('Left the room.');
+        }
+
+        function openLobbyFromBadge() {
+            displayTableLobby();
+        }
+
+        function updateNavbarBadge(code) {
+            const badge = document.getElementById('navRoomBadge');
+            const codeEl = document.getElementById('navRoomCode');
+            codeEl.innerText = code;
+            badge.classList.remove('hidden');
+            badge.classList.add('flex');
+        }
+
+        function copyCurrentRoomCode() {
+            playAudio('click');
+            copyTextToClipboard(`https://unoplay.io/${currentRoomCode}`);
+            triggerToast(`Invite link copied: ${currentRoomCode}`);
+        }
+
+        function copyTextToClipboard(text) {
+            const textArea = document.createElement("textarea");
+            textArea.value = text;
+            textArea.style.position = "fixed";
+            textArea.style.left = "-999999px";
+            document.body.appendChild(textArea);
+            textArea.focus();
+            textArea.select();
+            try { document.execCommand('copy'); } catch (err) {}
+            document.body.removeChild(textArea);
+        }
+
+        let qTimer;
+        function triggerToast(msg) {
+            const q = document.getElementById('quickToast');
+            document.getElementById('quickToastMsg').innerText = msg;
+            clearTimeout(qTimer);
+            q.classList.remove('translate-y-12', 'opacity-0');
+            qTimer = setTimeout(() => q.classList.add('translate-y-12', 'opacity-0'), 3000);
+        }
+
+        function tiltCard(card) {
+            playAudio('deal');
+            card.style.transform = 'scale(1.15) rotate(0deg) translateZ(30px)';
+            setTimeout(() => card.style.transform = '', 600);
+            triggerToast('UNO card selected.');
+        }
+
+        function sendChatMessage() {
+            const input = document.getElementById('chatInput');
+            const msg = input.value.trim();
+            if (!msg) return;
+            playAudio('click');
+            const container = document.getElementById('chatContainer');
+            const div = document.createElement('div');
+            div.className = "bg-white/5 p-2 rounded-xl text-white text-[11px] border border-white/5";
+            div.innerHTML = `<strong class="text-yellow-400">${currentUserNick}:</strong> <span>${msg}</span>`;
+            container.appendChild(div);
+            input.value = '';
+            container.scrollTop = container.scrollHeight;
+        }
+
+        window.addEventListener('keydown', (e) => {
+            if (e.key === 'Escape') {
+                closeModal();
+                closeStartGameModalSlowly();
+                closeAnniversaryModal();
+            }
+        });
+
+        window.onload = function() {
+            initThreeShader();
+            initInteractiveFx();
+            initSecurityScan();
+            renderAvatars();
+        };
+    </script>
+</body>
+</html>
