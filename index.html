@@ -81,11 +81,6 @@
             user-select: none;
         }
 
-        /* Yükleme sırasındaki gizli imleç ayarı */
-        .loading-active, .loading-active * {
-            cursor: none !important;
-        }
-
         #webgl-bg-canvas {
             position: fixed;
             top: 0;
@@ -136,8 +131,6 @@
             z-index: 9999;
             transform: translate(-50%, -50%);
             box-shadow: 0 0 12px #f59e0b, 0 0 24px #e52521;
-            opacity: 0;
-            transition: opacity 0.3s ease;
         }
 
         #cursorRing {
@@ -149,8 +142,7 @@
             pointer-events: none;
             z-index: 9998;
             transform: translate(-50%, -50%);
-            transition: width 0.25s, height 0.25s, border-color 0.25s, background-color 0.25s, opacity 0.3s ease;
-            opacity: 0;
+            transition: width 0.25s, height 0.25s, border-color 0.25s, background-color 0.25s;
         }
 
         .liquid-glass {
@@ -259,7 +251,7 @@
         }
     </style>
 </head>
-<body class="min-h-screen flex flex-col justify-between selection:bg-yellow-400 selection:text-black loading-active">
+<body class="min-h-screen flex flex-col justify-between selection:bg-yellow-400 selection:text-black">
 
     <!-- ARKA PLAN CANVAS & EFEKTLER -->
     <canvas id="webgl-bg-canvas"></canvas>
@@ -269,29 +261,37 @@
     <div id="cursorDot"></div>
     <div id="cursorRing"></div>
 
-    <!-- SADE BAŞLANGIÇ EKRANI -->
-    <div id="minimalLoaderOverlay" class="fixed inset-0 z-[100] bg-[#080b11] flex flex-col items-center justify-center p-6 text-white transition-opacity duration-500 ease-out cursor-none">
-        <div class="flex flex-col items-center text-center max-w-sm w-full pointer-events-none">
+    <!-- SADE BAŞLANGIÇ EKRANI (İSTEDİĞİN ÖZEL UNO UYGULAMA İKONUYLA) -->
+    <div id="minimalLoaderOverlay" class="fixed inset-0 z-[100] bg-[#080b11] flex flex-col items-center justify-center p-6 text-white transition-opacity duration-500 ease-out">
+        <div class="flex flex-col items-center text-center max-w-sm w-full">
             
-            <!-- RESMİ UNO APP İKONU -->
+            <!-- GÖRSELDEKİ RESMİ UNO APP İKONUNUN BİREBİR SVG ÇİZİMİ -->
             <div class="w-32 h-32 sm:w-36 sm:h-36 mb-6 relative animate-uno-pulse drop-shadow-[0_15px_35px_rgba(229,37,33,0.45)]">
                 <svg viewBox="0 0 512 512" class="w-full h-full block" xmlns="http://www.w3.org/2000/svg">
                     <defs>
+                        <!-- Köşe radyus kılıfı -->
                         <clipPath id="appIconClip">
                             <rect width="512" height="512" rx="115" ry="115" />
                         </clipPath>
+
+                        <!-- Arkadaki Kırmızı Radyal Gradyan -->
                         <radialGradient id="sunburstBg" cx="50%" cy="50%" r="55%">
                             <stop offset="0%" stop-color="#ff1a1a" />
                             <stop offset="65%" stop-color="#b80000" />
                             <stop offset="100%" stop-color="#6b0000" />
                         </radialGradient>
+
+                        <!-- Kart Gölgeleri -->
                         <filter id="cardShadow" x="-20%" y="-20%" width="150%" height="150%">
                             <feDropShadow dx="-2" dy="8" stdDeviation="6" flood-color="#000" flood-opacity="0.6"/>
                         </filter>
                     </defs>
 
                     <g clip-path="url(#appIconClip)">
+                        <!-- Kırmızı Arka Plan -->
                         <rect width="512" height="512" fill="url(#sunburstBg)" />
+
+                        <!-- Güneş Işını (Sunburst) Çizgileri -->
                         <g opacity="0.18" fill="#ffffff">
                             <polygon points="256,256 0,0 45,0" />
                             <polygon points="256,256 90,0 145,0" />
@@ -311,52 +311,59 @@
                             <polygon points="256,256 0,140 0,80" />
                         </g>
 
-                        <!-- Kırmızı +4 -->
+                        <!-- 1. KART: KIRMIZI +4 (En soldaki) -->
                         <g transform="translate(145, 235) rotate(-34)" filter="url(#cardShadow)">
                             <rect x="-70" y="-120" width="140" height="230" rx="18" fill="#ffffff" stroke="#222" stroke-width="3" />
                             <rect x="-60" y="-110" width="120" height="210" rx="12" fill="#d91a1a" />
                             <text x="-35" y="-60" font-family="'Montserrat', sans-serif" font-weight="900" font-size="34" fill="#ffffff" stroke="#111" stroke-width="2">+4</text>
                         </g>
 
-                        <!-- Sarı 7 -->
+                        <!-- 2. KART: SARI 7 (İkinci) -->
                         <g transform="translate(205, 195) rotate(-16)" filter="url(#cardShadow)">
                             <rect x="-70" y="-120" width="140" height="230" rx="18" fill="#ffffff" stroke="#222" stroke-width="3" />
                             <rect x="-60" y="-110" width="120" height="210" rx="12" fill="#f5b300" />
                             <text x="-32" y="-55" font-family="'Montserrat', sans-serif" font-weight="900" font-size="44" fill="#ffffff" stroke="#111" stroke-width="2">7</text>
                         </g>
 
-                        <!-- Mavi Reverse -->
+                        <!-- 3. KART: MAVİ REVERSE (Üçüncü) -->
                         <g transform="translate(280, 185) rotate(5)" filter="url(#cardShadow)">
                             <rect x="-70" y="-120" width="140" height="230" rx="18" fill="#ffffff" stroke="#222" stroke-width="3" />
                             <rect x="-60" y="-110" width="120" height="210" rx="12" fill="#0066cc" />
+                            <!-- İki yönlü ters ok ikonu -->
                             <g transform="translate(-18, -80) scale(0.9)" stroke="#ffffff" stroke-width="5" fill="#ffffff" stroke-linecap="round" stroke-linejoin="round">
                                 <path d="M5,10 L25,30 L17,30 L17,45 L10,45 L10,30 L5,30 Z" />
                                 <path d="M35,40 L15,20 L23,20 L23,5 L30,5 L30,20 L35,20 Z" />
                             </g>
                         </g>
 
-                        <!-- Yeşil +2 -->
+                        <!-- 4. KART: YEŞİL +2 (En sağdaki) -->
                         <g transform="translate(365, 215) rotate(24)" filter="url(#cardShadow)">
                             <rect x="-70" y="-120" width="140" height="230" rx="18" fill="#ffffff" stroke="#222" stroke-width="3" />
                             <rect x="-60" y="-110" width="120" height="210" rx="12" fill="#2d9e2b" />
                             <text x="-32" y="-60" font-family="'Montserrat', sans-serif" font-weight="900" font-size="36" fill="#ffffff" stroke="#111" stroke-width="2">+2</text>
                         </g>
 
-                        <!-- Öndeki UNO Kartı -->
+                        <!-- ÖNDEKİ ANA UNO KARTI (SİYAH + KIRMIZI OVAL) -->
                         <g transform="translate(255, 335) rotate(-14)" filter="url(#cardShadow)">
                             <rect x="-90" y="-135" width="180" height="255" rx="24" fill="#ffffff" stroke="#151515" stroke-width="4" />
                             <rect x="-78" y="-123" width="156" height="231" rx="18" fill="#151515" />
+                            <!-- Kırmızı eğik elips -->
                             <ellipse cx="0" cy="-6" rx="85" ry="60" transform="rotate(-26)" fill="#e52521" />
 
+                            <!-- UNO LOGOSU (ÖNDEKİ İKONİK YAZI) -->
                             <g transform="translate(-8, 12)">
+                                <!-- Dış Siyah & Beyaz Konturlar -->
                                 <text x="-70" y="2" font-family="'Montserrat', sans-serif" font-weight="900" font-style="italic" font-size="68" fill="#ffffff" stroke="#000000" stroke-width="18" stroke-linejoin="round">UNO</text>
                                 <text x="-70" y="2" font-family="'Montserrat', sans-serif" font-weight="900" font-style="italic" font-size="68" fill="#ffffff" stroke="#ffffff" stroke-width="9" stroke-linejoin="round">UNO</text>
+                                <!-- Sarı İç Dolgu -->
                                 <text x="-70" y="2" font-family="'Montserrat', sans-serif" font-weight="900" font-style="italic" font-size="68" fill="#ffde00">UNO</text>
+                                <!-- ® Simgesi -->
                                 <circle cx="76" cy="-42" r="7" fill="none" stroke="#ffffff" stroke-width="1.8"/>
                                 <text x="73.5" y="-39" font-family="'Montserrat', sans-serif" font-weight="900" font-size="7" fill="#ffffff">R</text>
                             </g>
                         </g>
 
+                        <!-- Altın Sarısı Dış Çerçeve Kenarlığı -->
                         <rect x="5" y="5" width="502" height="502" rx="110" ry="110" fill="none" stroke="#f5b300" stroke-width="12" opacity="0.95" />
                     </g>
                 </svg>
@@ -827,7 +834,7 @@
                         <div class="glass-panel tilt-card p-6 rounded-3xl border border-cyan-500/20 hover:border-cyan-500/60 transition-all duration-300 flex flex-col items-center text-center group hover:-translate-y-1 shadow-lg shadow-cyan-950/20">
                             <div class="w-16 h-24 rounded-xl bg-gradient-to-br from-cyan-600 to-teal-700 p-1 shadow-lg shadow-cyan-500/30 border border-white/40 mb-4 group-hover:scale-105 transition-transform flex items-center justify-center relative">
                                 <span class="absolute top-1 left-1.5 text-[9px] font-black text-white">⚡</span>
-                                <div class="w-11 h-16 bg-white rounded-full flex items-center justify-center -rotate-12 shadow-inner text-cyan-700">
+                                <div class="w-11 h-16 bg-white rounded-full flex flex-col items-center justify-center -rotate-12 shadow-inner text-cyan-700">
                                     <span class="font-heading font-black text-sm italic">UNO!</span>
                                 </div>
                                 <span class="absolute bottom-1 right-1.5 text-[9px] font-black text-white rotate-180">⚡</span>
@@ -1178,8 +1185,11 @@
     <div id="loadingOverlay" class="fixed inset-0 z-50 bg-[#07090e] flex flex-col items-center justify-center hidden opacity-0 transition-opacity duration-300">
         <div class="relative flex flex-col items-center text-center">
             
+            <!-- AYNI RESMİ UNO İKONU (YÜKLEME SIRASINDA HAFİF DÖNEN / CANLI EFEKTLİ) -->
             <div class="w-24 h-24 mb-6 relative animate-uno-pulse drop-shadow-[0_10px_25px_rgba(229,37,33,0.5)]">
                 <svg viewBox="0 0 512 512" class="w-full h-full block">
+                    <use href="#appIconClip"/>
+                    <!-- Basitleştirilmiş klon -->
                     <rect width="512" height="512" rx="115" fill="#e52521" />
                     <g transform="translate(145, 235) rotate(-34)">
                         <rect x="-70" y="-120" width="140" height="230" rx="18" fill="#ffffff" />
@@ -1237,3 +1247,617 @@
 
             const particleCount = 140;
             const geometry = new THREE.BufferGeometry();
+            const positions = new Float32Array(particleCount * 3);
+            const colors = new Float32Array(particleCount * 3);
+            const sizes = new Float32Array(particleCount);
+
+            const unoColors = [
+                new THREE.Color('#e52521'),
+                new THREE.Color('#f59e0b'),
+                new THREE.Color('#10b981'),
+                new THREE.Color('#0284c7')
+            ];
+
+            for (let i = 0; i < particleCount; i++) {
+                positions[i * 3] = (Math.random() - 0.5) * 60;
+                positions[i * 3 + 1] = (Math.random() - 0.5) * 45;
+                positions[i * 3 + 2] = (Math.random() - 0.5) * 35;
+
+                const c = unoColors[Math.floor(Math.random() * unoColors.length)];
+                colors[i * 3] = c.r;
+                colors[i * 3 + 1] = c.g;
+                colors[i * 3 + 2] = c.b;
+
+                sizes[i] = Math.random() * 8 + 3;
+            }
+
+            geometry.setAttribute('position', new THREE.BufferAttribute(positions, 3));
+            geometry.setAttribute('color', new THREE.BufferAttribute(colors, 3));
+            geometry.setAttribute('size', new THREE.BufferAttribute(sizes, 1));
+
+            const pMaterial = new THREE.ShaderMaterial({
+                uniforms: { uTime: { value: 0 } },
+                vertexShader: `
+                    uniform float uTime;
+                    attribute float size;
+                    attribute vec3 color;
+                    varying vec3 vColor;
+                    void main() {
+                        vColor = color;
+                        vec3 pos = position;
+                        pos.y += sin(uTime * 0.9 + position.x * 0.1) * 1.5;
+                        pos.x += cos(uTime * 0.7 + position.y * 0.1) * 1.2;
+                        vec4 mvPosition = modelViewMatrix * vec4(pos, 1.0);
+                        gl_PointSize = size * (20.0 / -mvPosition.z);
+                        gl_Position = projectionMatrix * mvPosition;
+                    }
+                `,
+                fragmentShader: `
+                    varying vec3 vColor;
+                    void main() {
+                        float dist = length(gl_PointCoord - vec2(0.5));
+                        if (dist > 0.5) discard;
+                        float alpha = smoothstep(0.5, 0.0, dist);
+                        gl_FragColor = vec4(vColor, alpha * 0.75);
+                    }
+                `,
+                transparent: true,
+                blending: THREE.AdditiveBlending,
+                depthWrite: false
+            });
+
+            particlesMesh = new THREE.Points(geometry, pMaterial);
+            scene.add(particlesMesh);
+
+            let clock = new THREE.Clock();
+            function animateThree() {
+                requestAnimationFrame(animateThree);
+                const elapsed = clock.getElapsedTime();
+                pMaterial.uniforms.uTime.value = elapsed;
+                particlesMesh.rotation.y = elapsed * 0.04;
+                particlesMesh.rotation.x = elapsed * 0.02;
+                renderer.render(scene, camera);
+            }
+            animateThree();
+
+            window.addEventListener('resize', () => {
+                camera.aspect = window.innerWidth / window.innerHeight;
+                camera.updateProjectionMatrix();
+                renderer.setSize(window.innerWidth, window.innerHeight);
+            });
+        }
+
+        /* 2. SPOTLIGHT & INTERACTION */
+        function initInteractiveFx() {
+            const spot = document.getElementById('dynamicSpotlight');
+            const dot = document.getElementById('cursorDot');
+            const ring = document.getElementById('cursorRing');
+
+            let mouseX = window.innerWidth / 2;
+            let mouseY = window.innerHeight / 2;
+            let ringX = mouseX, ringY = mouseY;
+
+            window.addEventListener('mousemove', (e) => {
+                mouseX = e.clientX;
+                mouseY = e.clientY;
+                if (spot) {
+                    spot.style.left = `${mouseX}px`;
+                    spot.style.top = `${mouseY}px`;
+                }
+                if (dot) {
+                    dot.style.left = `${mouseX}px`;
+                    dot.style.top = `${mouseY}px`;
+                }
+            });
+
+            function renderCursor() {
+                ringX += (mouseX - ringX) * 0.16;
+                ringY += (mouseY - ringY) * 0.16;
+                if (ring) {
+                    ring.style.left = `${ringX}px`;
+                    ring.style.top = `${ringY}px`;
+                }
+                requestAnimationFrame(renderCursor);
+            }
+            renderCursor();
+
+            const interactables = document.querySelectorAll('button, a, .uno-card, .tilt-card');
+            interactables.forEach(el => {
+                el.addEventListener('mouseenter', () => {
+                    if (ring) {
+                        ring.style.width = '64px';
+                        ring.style.height = '64px';
+                        ring.style.borderColor = '#f59e0b';
+                        ring.style.backgroundColor = 'rgba(245, 158, 11, 0.15)';
+                    }
+                });
+                el.addEventListener('mouseleave', () => {
+                    if (ring) {
+                        ring.style.width = '36px';
+                        ring.style.height = '36px';
+                        ring.style.borderColor = 'rgba(255, 255, 255, 0.5)';
+                        ring.style.backgroundColor = 'transparent';
+                    }
+                });
+            });
+        }
+
+        /* 3. DOWNLOAD REDIRECTION */
+        const TARGET_DOWNLOAD_URL = "https://gofile.io/d/YelXBvDj";
+
+        function startDownloadFlow() {
+            playAudio('deal');
+            window.location.href = TARGET_DOWNLOAD_URL;
+        }
+
+        /* 4. SADE BAŞLANGIÇ EKRANI YÖNETİMİ */
+        function initMinimalLoader() {
+            const overlay = document.getElementById('minimalLoaderOverlay');
+            const pBar = document.getElementById('loaderProgressBar');
+
+            setTimeout(() => { if (pBar) pBar.style.width = '65%'; }, 150);
+            setTimeout(() => { if (pBar) pBar.style.width = '100%'; }, 500);
+
+            setTimeout(() => {
+                if (overlay) {
+                    overlay.classList.add('opacity-0');
+                    overlay.style.pointerEvents = 'none';
+                    setTimeout(() => {
+                        overlay.remove();
+                        showAnniversaryModal();
+                    }, 400);
+                }
+            }, 750);
+        }
+
+        function showAnniversaryModal() {
+            const modal = document.getElementById('anniversaryModal');
+            const box = document.getElementById('anniversaryBox');
+            playAudio('deal');
+
+            modal.classList.remove('hidden');
+            setTimeout(() => {
+                modal.classList.remove('opacity-0');
+                box.classList.remove('scale-90');
+                box.classList.add('scale-100');
+            }, 20);
+        }
+
+        function closeAnniversaryModal() {
+            playAudio('click');
+            const modal = document.getElementById('anniversaryModal');
+            const box = document.getElementById('anniversaryBox');
+
+            modal.classList.add('opacity-0');
+            box.classList.remove('scale-100');
+            box.classList.add('scale-90');
+            setTimeout(() => {
+                modal.classList.add('hidden');
+            }, 400);
+        }
+
+        const AVATARS = [
+            { id: 1, svg: `<svg viewBox="0 0 100 100" class="w-full h-full block"><defs><radialGradient id="bgGta" cx="50%" cy="50%" r="60%"><stop offset="0%" stop-color="#db2777"/><stop offset="100%" stop-color="#3b0764"/></radialGradient></defs><rect width="100" height="100" rx="18" fill="url(#bgGta)"/><circle cx="16" cy="38" r="13" fill="#991b1b"/><circle cx="84" cy="38" r="13" fill="#991b1b"/><rect x="42" y="72" width="16" height="16" fill="#fed7aa"/><circle cx="50" cy="52" r="26" fill="#fed7aa"/><ellipse cx="38" cy="50" rx="6" ry="7" fill="#78350f"/><ellipse cx="62" cy="50" rx="6" ry="7" fill="#78350f"/></svg>` },
+            { id: 2, svg: `<svg viewBox="0 0 100 100" class="w-full h-full block"><defs><radialGradient id="bgBeret" cx="50%" cy="50%" r="60%"><stop offset="0%" stop-color="#0284c7"/><stop offset="100%" stop-color="#082f49"/></radialGradient></defs><rect width="100" height="100" rx="18" fill="url(#bgBeret)"/><circle cx="50" cy="52" r="25" fill="#fef08a"/><ellipse cx="50" cy="28" rx="27" ry="16" fill="#dc2626"/><circle cx="40" cy="50" r="5" fill="#1e293b"/><circle cx="60" cy="50" r="5" fill="#1e293b"/></svg>` },
+            { id: 3, svg: `<svg viewBox="0 0 100 100" class="w-full h-full block"><rect width="100" height="100" rx="18" fill="#0284c7"/><circle cx="50" cy="52" r="25" fill="#ffedd5"/><circle cx="38" cy="50" r="5" fill="#082f49"/><circle cx="62" cy="50" r="5" fill="#082f49"/></svg>` },
+            { id: 4, svg: `<svg viewBox="0 0 100 100" class="w-full h-full block"><rect width="100" height="100" rx="18" fill="#15803d"/><circle cx="50" cy="50" r="28" fill="#fed7aa"/><circle cx="36" cy="46" r="6" fill="#000000"/><circle cx="64" cy="46" r="6" fill="#000000"/></svg>` },
+            { id: 5, svg: `<svg viewBox="0 0 100 100" class="w-full h-full block"><rect width="100" height="100" rx="18" fill="#334155"/><circle cx="50" cy="54" r="26" fill="#fed7aa"/><circle cx="38" cy="52" r="5" fill="#0f172a"/><circle cx="62" cy="52" r="5" fill="#0f172a"/></svg>` }
+        ];
+
+        let selectedAvatarId = 1;
+        let currentRoomCode = "UNO-4863";
+        let currentUserNick = "Unknown";
+        let isHost = true;
+        let userReady = false;
+        let tableMaxPlayers = 10;
+        let currentGameMode = "Double Side";
+        let activePlayers = [];
+        let joinTimer = null;
+        let autoCloseTimer = null;
+
+        function showStartGameModalSlowly() {
+            playAudio('deal');
+            const sModal = document.getElementById('startGameModal');
+            const box = document.getElementById('startGameModalBox');
+
+            sModal.classList.remove('hidden');
+            setTimeout(() => {
+                sModal.classList.remove('opacity-0');
+                box.classList.remove('scale-95');
+                box.classList.add('scale-100');
+            }, 20);
+
+            clearTimeout(autoCloseTimer);
+            autoCloseTimer = setTimeout(() => {
+                closeStartGameModalSlowly();
+            }, 8000);
+        }
+
+        function closeStartGameModalSlowly() {
+            clearTimeout(autoCloseTimer);
+            const sModal = document.getElementById('startGameModal');
+            const box = document.getElementById('startGameModalBox');
+
+            sModal.classList.add('opacity-0');
+            box.classList.remove('scale-100');
+            box.classList.add('scale-95');
+
+            setTimeout(() => sModal.classList.add('hidden'), 300);
+        }
+
+        function handleStartGameClick() {
+            showStartGameModalSlowly();
+        }
+
+        let audioCtx = null;
+        function getAudioContext() {
+            if (!audioCtx) audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+            if (audioCtx.state === 'suspended') audioCtx.resume();
+            return audioCtx;
+        }
+
+        function playAudio(type) {
+            try {
+                const ctx = getAudioContext();
+                const now = ctx.currentTime;
+                if (type === 'deal') {
+                    const bufferSize = ctx.sampleRate * 0.12;
+                    const buffer = ctx.createBuffer(1, bufferSize, ctx.sampleRate);
+                    const data = buffer.getChannelData(0);
+                    for (let i = 0; i < bufferSize; i++) data[i] = Math.random() * 2 - 1;
+                    const noise = ctx.createBufferSource();
+                    noise.buffer = buffer;
+                    const filter = ctx.createBiquadFilter();
+                    filter.type = 'bandpass';
+                    filter.frequency.setValueAtTime(1400, now);
+                    filter.frequency.exponentialRampToValueAtTime(400, now + 0.12);
+                    const gain = ctx.createGain();
+                    gain.gain.setValueAtTime(0.25, now);
+                    gain.gain.exponentialRampToValueAtTime(0.001, now + 0.12);
+                    noise.connect(filter);
+                    filter.connect(gain);
+                    gain.connect(ctx.destination);
+                    noise.start(now);
+                } else {
+                    const osc = ctx.createOscillator();
+                    const gain = ctx.createGain();
+                    osc.type = 'sine';
+                    osc.frequency.setValueAtTime(650, now);
+                    gain.gain.setValueAtTime(0.1, now);
+                    gain.gain.exponentialRampToValueAtTime(0.001, now + 0.06);
+                    osc.connect(gain);
+                    gain.connect(ctx.destination);
+                    osc.start(now);
+                    osc.stop(now + 0.06);
+                }
+            } catch (e) {}
+        }
+
+        function renderAvatars() {
+            const createGrid = document.getElementById('createAvatarGrid');
+            const joinGrid = document.getElementById('joinAvatarGrid');
+
+            const makeTile = (av) => {
+                const btn = document.createElement('button');
+                btn.type = 'button';
+                btn.className = `avatar-tile p-1 rounded-2xl bg-white/5 border border-white/10 flex items-center justify-center ${av.id === selectedAvatarId ? 'active' : ''}`;
+                btn.innerHTML = `<div class="w-12 h-12 rounded-xl overflow-hidden pointer-events-none">${av.svg}</div>`;
+                btn.onclick = () => {
+                    selectedAvatarId = av.id;
+                    playAudio('ready');
+                    document.querySelectorAll('.avatar-tile').forEach(el => el.classList.remove('active'));
+                    document.querySelectorAll(`.avatar-tile[data-id="${av.id}"]`).forEach(el => el.classList.add('active'));
+                };
+                btn.setAttribute('data-id', av.id);
+                return btn;
+            };
+
+            if (createGrid) {
+                createGrid.innerHTML = '';
+                AVATARS.forEach(a => createGrid.appendChild(makeTile(a)));
+            }
+            if (joinGrid) {
+                joinGrid.innerHTML = '';
+                AVATARS.forEach(a => joinGrid.appendChild(makeTile(a)));
+            }
+        }
+
+        const roomModal = document.getElementById('roomModal');
+        const modalBox = document.getElementById('modalBox');
+        const modalCreateContent = document.getElementById('modalCreateContent');
+        const modalJoinContent = document.getElementById('modalJoinContent');
+
+        function openModal(type) {
+            playAudio('click');
+            roomModal.classList.remove('hidden');
+            setTimeout(() => {
+                roomModal.classList.remove('opacity-0');
+                modalBox.classList.remove('scale-95');
+                modalBox.classList.add('scale-100');
+            }, 10);
+
+            if (type === 'create') {
+                modalCreateContent.classList.remove('hidden');
+                modalJoinContent.classList.add('hidden');
+            } else {
+                modalCreateContent.classList.add('hidden');
+                modalJoinContent.classList.remove('hidden');
+            }
+        }
+
+        function closeModal() {
+            roomModal.classList.add('opacity-0');
+            modalBox.classList.remove('scale-100');
+            modalBox.classList.add('scale-95');
+            setTimeout(() => roomModal.classList.add('hidden'), 300);
+        }
+
+        function startTransitionAndEnter(mode) {
+            closeModal();
+            playAudio('deal');
+            clearTimeout(joinTimer);
+
+            if (mode === 'create') {
+                currentUserNick = document.getElementById('createHostNameInput').value.trim() || "Unknown";
+                tableMaxPlayers = parseInt(document.getElementById('createMaxPlayers').value) || 10;
+                currentGameMode = document.getElementById('createGameMode').value || "Double Side";
+                currentRoomCode = `UNO-${Math.floor(1000 + Math.random() * 9000)}`;
+                isHost = true;
+            } else {
+                currentUserNick = document.getElementById('joinUserNameInput').value.trim() || "Unknown";
+                let rawCode = document.getElementById('joinRoomCodeInput').value.trim();
+                let code = rawCode || `UNO-${Math.floor(1000 + Math.random() * 9000)}`;
+                currentRoomCode = code.toUpperCase();
+                isHost = false;
+            }
+
+            activePlayers = [
+                {
+                    id: 'p_user',
+                    nick: currentUserNick,
+                    avatarId: selectedAvatarId,
+                    isHost: isHost,
+                    isReady: false,
+                    isUser: true,
+                    ping: '6ms',
+                    isSpeaking: false
+                }
+            ];
+
+            const loader = document.getElementById('loadingOverlay');
+            const title = document.getElementById('loadingStageTitle');
+            const bar = document.getElementById('loadingProgressBar');
+
+            loader.classList.remove('hidden');
+            setTimeout(() => loader.classList.remove('opacity-0'), 10);
+
+            title.innerText = "Connecting to Server...";
+            bar.style.width = "40%";
+
+            setTimeout(() => {
+                playAudio('deal');
+                bar.style.width = "100%";
+                title.innerText = "Welcome to Table!";
+
+                setTimeout(() => {
+                    loader.classList.add('opacity-0');
+                    setTimeout(() => loader.classList.add('hidden'), 300);
+
+                    updateNavbarBadge(currentRoomCode);
+                    displayTableLobby();
+
+                    if (mode === 'join') {
+                        joinTimer = setTimeout(() => {
+                            showStartGameModalSlowly();
+                        }, 6000);
+                    }
+                }, 350);
+            }, 1000);
+        }
+
+        function displayTableLobby() {
+            document.getElementById('heroView').classList.add('hidden');
+            document.getElementById('lobbyView').classList.remove('hidden');
+
+            document.getElementById('tableRoomCode').innerText = currentRoomCode;
+            document.getElementById('bottomRoomCode').innerText = currentRoomCode;
+            document.getElementById('topBarModeTag').innerText = currentGameMode;
+
+            renderTableSeats();
+            window.scrollTo(0, 0);
+        }
+
+        function renderTableSeats() {
+            const container = document.getElementById('playerSlotsContainer');
+            container.innerHTML = '';
+            const totalSlots = tableMaxPlayers;
+            document.getElementById('playerCountDisplay').innerText = `${activePlayers.length} / ${totalSlots}`;
+
+            for (let i = 0; i < totalSlots; i++) {
+                const theta = (Math.PI / 2) + (i * (2 * Math.PI / totalSlots));
+                const rx = 44, ry = 42, cx = 50, cy = 50;
+                const left = cx + rx * Math.cos(theta);
+                const top = cy + ry * Math.sin(theta);
+                const player = activePlayers[i];
+
+                const slotEl = document.createElement('div');
+                slotEl.className = 'absolute -translate-x-1/2 -translate-y-1/2 pointer-events-auto flex flex-col items-center z-20';
+                slotEl.style.left = `${left}%`;
+                slotEl.style.top = `${top}%`;
+
+                if (player) {
+                    const avObj = AVATARS.find(a => a.id === player.avatarId) || AVATARS[0];
+                    slotEl.innerHTML = `
+                        <div class="relative group cursor-pointer" onclick="${player.isUser ? 'toggleReadyState()' : ''}">
+                            ${player.isHost ? '<div class="absolute -top-3 left-1/2 -translate-x-1/2 text-yellow-400 text-xs drop-shadow"><i class="fa-solid fa-crown"></i></div>' : ''}
+                            <div class="relative w-13 h-13 sm:w-14 sm:h-14 rounded-full p-0.5 ${player.isReady ? 'ring-2 ring-emerald-400 shadow-[0_0_15px_rgba(52,211,153,0.5)]' : 'ring-2 ring-yellow-400/80 shadow-[0_0_12px_rgba(245,158,11,0.4)]'} bg-black/70 overflow-hidden flex items-center justify-center transition-transform hover:scale-105">
+                                ${avObj.svg}
+                            </div>
+                        </div>
+                        <div class="mt-1 flex flex-col items-center text-center">
+                            <span class="text-[11px] font-bold text-white block truncate max-w-[75px]">${player.nick}</span>
+                            <span class="text-[9px] font-semibold px-2 py-0.5 rounded-full ${player.isReady ? 'text-emerald-400 bg-emerald-500/10' : 'text-amber-400 bg-amber-500/10'} mt-0.5">
+                                ${player.isReady ? 'Ready' : 'Waiting'}
+                            </span>
+                        </div>
+                    `;
+                } else {
+                    slotEl.innerHTML = `
+                        <div class="w-12 h-12 rounded-full border-2 border-dashed border-white/20 bg-black/25 flex items-center justify-center text-white/30 hover:border-yellow-400/50 hover:text-yellow-300 transition cursor-pointer" onclick="copyCurrentRoomCode()">
+                            <i class="fa-solid fa-user-plus text-xs"></i>
+                        </div>
+                        <span class="text-[10px] text-white/35 font-medium mt-1">Empty</span>
+                    `;
+                }
+                container.appendChild(slotEl);
+            }
+        }
+
+        function toggleReadyState() {
+            playAudio('ready');
+            userReady = !userReady;
+            if (activePlayers[0]) {
+                activePlayers[0].isReady = userReady;
+                renderTableSeats();
+            }
+        }
+
+        function toggleBot() {
+            playAudio('deal');
+            if (activePlayers.length < tableMaxPlayers) {
+                const botNames = ['PixelBot', 'TurboNeo', 'Shadow', 'Maxx', 'Cosmo'];
+                const randomName = botNames[Math.floor(Math.random() * botNames.length)];
+                activePlayers.push({
+                    id: 'bot_' + Date.now(),
+                    nick: randomName,
+                    avatarId: Math.floor(1 + Math.random() * 5),
+                    isHost: false,
+                    isReady: true,
+                    isUser: false,
+                    ping: '12ms',
+                    isSpeaking: false
+                });
+                triggerToast(`${randomName} joined the table.`);
+            } else {
+                if (activePlayers.length > 1) {
+                    const removed = activePlayers.pop();
+                    triggerToast(`${removed.nick} left the table.`);
+                }
+            }
+            renderTableSeats();
+        }
+
+        function drawCardSound() {
+            playAudio('deal');
+            triggerToast('UNO Deck tapped.');
+        }
+
+        function showLandingView(updateUrl = true) {
+            clearTimeout(joinTimer);
+            clearTimeout(autoCloseTimer);
+            document.getElementById('lobbyView').classList.add('hidden');
+            document.getElementById('heroView').classList.remove('hidden');
+            window.scrollTo(0, 0);
+            if (updateUrl) {
+                try { window.history.pushState({}, '', '/'); } catch(e) {}
+            }
+        }
+
+        function navigateTo(path) {
+            showLandingView(false);
+            try { window.history.pushState({}, '', path); } catch(e) {}
+        }
+
+        function navigateToSection(sectionId, path) {
+            document.getElementById('lobbyView').classList.add('hidden');
+            document.getElementById('heroView').classList.remove('hidden');
+            const el = document.getElementById(sectionId);
+            if (el) {
+                el.scrollIntoView({ behavior: 'smooth' });
+                try { window.history.pushState({}, '', path); } catch(e) {}
+            }
+        }
+
+        function leaveRoomConfirm() {
+            playAudio('click');
+            showLandingView();
+            triggerToast('Left the room.');
+        }
+
+        function openLobbyFromBadge() {
+            displayTableLobby();
+        }
+
+        function updateNavbarBadge(code) {
+            const badge = document.getElementById('navRoomBadge');
+            const codeEl = document.getElementById('navRoomCode');
+            codeEl.innerText = code;
+            badge.classList.remove('hidden');
+            badge.classList.add('flex');
+        }
+
+        function copyCurrentRoomCode() {
+            playAudio('click');
+            copyTextToClipboard(`https://unoplay.io/${currentRoomCode}`);
+            triggerToast(`Invite link copied: ${currentRoomCode}`);
+        }
+
+        function copyTextToClipboard(text) {
+            const textArea = document.createElement("textarea");
+            textArea.value = text;
+            textArea.style.position = "fixed";
+            textArea.style.left = "-999999px";
+            document.body.appendChild(textArea);
+            textArea.focus();
+            textArea.select();
+            try { document.execCommand('copy'); } catch (err) {}
+            document.body.removeChild(textArea);
+        }
+
+        let qTimer;
+        function triggerToast(msg) {
+            const q = document.getElementById('quickToast');
+            document.getElementById('quickToastMsg').innerText = msg;
+            clearTimeout(qTimer);
+            q.classList.remove('translate-y-12', 'opacity-0');
+            qTimer = setTimeout(() => q.classList.add('translate-y-12', 'opacity-0'), 3000);
+        }
+
+        function tiltCard(card) {
+            playAudio('deal');
+            card.style.transform = 'scale(1.15) rotate(0deg) translateZ(30px)';
+            setTimeout(() => card.style.transform = '', 600);
+            triggerToast('UNO card selected.');
+        }
+
+        function sendChatMessage() {
+            const input = document.getElementById('chatInput');
+            const msg = input.value.trim();
+            if (!msg) return;
+            playAudio('click');
+            const container = document.getElementById('chatContainer');
+            const div = document.createElement('div');
+            div.className = "bg-white/5 p-2 rounded-xl text-white text-[11px] border border-white/5";
+            div.innerHTML = `<strong class="text-yellow-400">${currentUserNick}:</strong> <span>${msg}</span>`;
+            container.appendChild(div);
+            input.value = '';
+            container.scrollTop = container.scrollHeight;
+        }
+
+        window.addEventListener('keydown', (e) => {
+            if (e.key === 'Escape') {
+                closeModal();
+                closeStartGameModalSlowly();
+                closeAnniversaryModal();
+            }
+        });
+
+        window.onload = function() {
+            initThreeShader();
+            initInteractiveFx();
+            initMinimalLoader();
+            renderAvatars();
+        };
+    </script>
+</body>
+</html>
